@@ -104,6 +104,7 @@ CRPG_Database::CRPG_Database(char *name) {
 
 CRPG_Database::~CRPG_Database(void) {
 	delete[] db_name;
+	delete[] db_path;
 	sqlite3_close(db);
 }
 
