@@ -42,4 +42,4 @@ private:
    CUtlVector< int > m_Recipients; 
 }; 
  
-#endif 
+#endif

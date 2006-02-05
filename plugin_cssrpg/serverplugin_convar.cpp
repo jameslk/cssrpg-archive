@@ -52,4 +52,3 @@ void InitCVars(CreateInterfaceFn cvarFactory) {
 		ConCommandBaseMgr::OneTimeInit(&g_ConVarAccessor);
 	}
 }
-
