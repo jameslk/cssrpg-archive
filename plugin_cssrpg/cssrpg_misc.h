@@ -52,12 +52,18 @@ struct edict_t;
 #define MTYPE_NOTICE "Notice"
 #define MTYPE_DBERR "Database Error"
 
+enum motd_type {motd_text = 1, motd_index, motd_url, motd_file};
+
 class IPlayerInfo;
 class IVEngineServe;
 class IPlayerInfoManager;
 class CGlobalVars;
 class IFileSystem;
 class CRPG_Utils {
+private:
+	/* Private Variables */
+	static int vguimenu;
+
 public:
 	/* Public Functions */
 	static int maxClients(void);
@@ -72,20 +78,26 @@ public:
 	static int UserIDtoIndex(int userid);
 	static edict_t* UserIDtoEdict(int userid);
 	static edict_t* IndextoEdict(int index);
-	int CRPG_Utils::IndextoUserID(int index);
+	static int IndextoUserID(int index);
 	static int EdicttoIndex(edict_t *e);
 	static int EdicttoUserid(edict_t *e);
 	static IPlayerInfo* EdicttoPlayerInfo(edict_t *e);
 	static const char* EdicttoSteamID(edict_t *e);
+	static int UserMessageIndex(char *name);
 
 	static int FindPlayer(char *str); /* used to find a player by their name or part of their name or also by userid */
 	static void ChatAreaMsg(int index, char *msg, ...);
 	static void EmitSound(int index, char *sound_path);
+
+	static void ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd = NULL);
+
 	static void ConsoleMsg(char *msgf, char *msg_type, ...);
 	static void DebugMsg(char *msg, ...);
 
 	static unsigned char* ustrncpy(unsigned char *dest, const unsigned char *src, int len);
 	static unsigned int istrcmp(char *str1, char *str2);
+
+	static void Init(void);
 };
 
 /*	//////////////////////////////////////
@@ -115,7 +127,7 @@ protected:
 
 		index = node->index-1;
 		if(nodes[index] != NULL) {
-			CRPG::DebugMsg("Warning: Deleted an old node for a new node at index: %d", node->index);
+			CRPG_Utils::DebugMsg("Warning: Deleted an old node for a new node at index: %d", node->index);
 			delete nodes[index];
 		}
 
@@ -138,7 +150,7 @@ protected:
 		unsigned int i = node_count;
 
 		if(nodes == NULL) {
-			CRPG::DebugMsg("Warning: Attempt to free memory that was already freed.");
+			CRPG_Utils::DebugMsg("Warning: Attempt to free memory that was already freed.");
 			return ;
 		}
 

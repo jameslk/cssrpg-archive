@@ -38,21 +38,23 @@
 
 #include "cssrpg.h"
 #include "cssrpg_menu.h"
+#include "cssrpg_misc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-using namespace std;
 
 extern IVEngineServer *engine;
 extern IPlayerInfoManager *playerinfomanager;
 extern CGlobalVars *gpGlobals;
 extern IEngineSound *esounds;
 extern IFileSystem *filesystem;
+extern IServerGameDLL *gamedll;
 
 /*	//////////////////////////////////////
 	CRPG_Utils Class
 	////////////////////////////////////// */
+int CRPG_Utils::vguimenu = -1;
+
 int CRPG_Utils::maxClients(void) {
 	return gpGlobals->maxClients;
 }
@@ -169,6 +171,19 @@ const char* CRPG_Utils::EdicttoSteamID(edict_t *e) {
 	return info->GetNetworkIDString();
 }
 
+int CRPG_Utils::UserMessageIndex(char *name) {
+   char cmpname[256];
+   int i, sizereturn = 0;
+
+	for(i = 1;i < 22;i++) {
+		gamedll->GetUserMessageInfo(i, cmpname, 256, sizereturn); 
+		if(name && !strcmp(name, cmpname))
+			return i;
+	}
+
+	return -1;
+}
+
 int CRPG_Utils::FindPlayer(char *str) {
 	int userid = atoi(str), max = maxClients(), index = -1;
 	edict_t *player;
@@ -250,6 +265,58 @@ void CRPG_Utils::EmitSound(int index, char *sound_path) {
 	return ;
 }
 
+void CRPG_Utils::ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd) {
+	bf_write *buffer;
+    MRecipientFilter filter;
+
+	if(index > maxClients() || index < 0)
+		filter.AddAllPlayers(maxClients());
+	else
+		filter.AddRecipient(index);
+
+	buffer = engine->UserMessageBegin(&filter, vguimenu);
+	buffer->WriteString("info");
+	buffer->WriteByte(1);
+
+	if(cmd != NULL)
+		buffer->WriteByte(4);
+	else
+		buffer->WriteByte(3);
+
+	buffer->WriteString("title");
+	buffer->WriteString(title);
+
+	buffer->WriteString("type");
+	switch(type) {
+		case motd_text:
+			buffer->WriteString("0"); //TYPE_TEXT = 0,   just display this plain text
+			break;
+
+		case motd_index:
+			buffer->WriteString("1"); //TYPE_INDEX,      lookup text & title in stringtable
+			break;
+
+		case motd_url:
+			buffer->WriteString("2"); //TYPE_URL,        show this URL
+			break;
+
+		case motd_file:
+			buffer->WriteString("3"); //TYPE_FILE,       show this local file
+			break;
+	}
+
+	buffer->WriteString("msg");
+	buffer->WriteString(msg);
+
+	if(cmd != NULL) {
+		buffer->WriteString("cmd");
+		buffer->WriteString(cmd); // exec this command if panel closed
+	}
+
+	engine->MessageEnd();
+	return ;
+}
+
 void CRPG_Utils::ConsoleMsg(char *msgf, char *msg_type, ...) {
 	char msg[1024];
 	va_list ap;
@@ -302,12 +369,18 @@ unsigned int CRPG_Utils::istrcmp(char *str1, char *str2) {
 	return 1;
 }
 
+void CRPG_Utils::Init() {
+	vguimenu = UserMessageIndex("VGUIMenu");
+
+	return ;
+}
+
 /*	//////////////////////////////////////
 	CRPG_Timer Class 
 	////////////////////////////////////// */
-CRPG_Timer* CRPG_Timer::ll_first;
-CRPG_Timer* CRPG_Timer::ll_last;
-unsigned int CRPG_Timer::ll_count;
+template<> CRPG_Timer* CRPG_LinkedList<CRPG_Timer>::ll_first;
+template<> CRPG_Timer* CRPG_LinkedList<CRPG_Timer>::ll_last;
+template<> unsigned int CRPG_LinkedList<CRPG_Timer>::ll_count;
 float CRPG_Timer::nextrun_tm;
 
 bool comp_times(CRPG_Timer *timer1, CRPG_Timer *timer2) {
