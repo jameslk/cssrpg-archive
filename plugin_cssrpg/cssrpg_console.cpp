@@ -89,9 +89,9 @@ CON_COMMAND(cssrpg_debug_timers, "List all timers") {
 /*	//////////////////////////////////////
 	CRPG_Setting Class
 	////////////////////////////////////// */
-CRPG_Setting* CRPG_Setting::ll_first;
-CRPG_Setting* CRPG_Setting::ll_last;
-unsigned int CRPG_Setting::ll_count;
+template<> CRPG_Setting* CRPG_LinkedList<CRPG_Setting>::ll_first;
+template<> CRPG_Setting* CRPG_LinkedList<CRPG_Setting>::ll_last;
+template<> unsigned int CRPG_LinkedList<CRPG_Setting>::ll_count;
 
 void CRPG_Setting::Init(void) {
 	ll_init();
