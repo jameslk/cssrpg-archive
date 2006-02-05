@@ -18,7 +18,7 @@
 #ifndef CSSRPG_MENU_H
 #define CSSRPG_MENU_H
 
-enum submenu_t {none, upgrades, sell, stats, settings, help};
+enum submenu_t {none, upgrades, sell, stats, help};
 
 #include "cssrpg.h"
 #include "cssrpg_misc.h"
@@ -34,6 +34,8 @@ class CRPG_Menu: public CRPG_PlayerClass<CRPG_Menu>, private CRPG_GlobalSettings
 	void GetStatsPage(void);
 	void GetSellPage(void);
 	void SellSelect(unsigned int option);
+	void GetHelpPage(void);
+	void HelpSelect(unsigned int option);
 
 	void GetMenu(void);
 	void SetOptions(char bit1, char bit2, char bit3 = 0, char bit4 = 0, char bit5 = 0, char bit6 = 0, char bit7 = 0, char bit8 = 0, char bit9 = 0);

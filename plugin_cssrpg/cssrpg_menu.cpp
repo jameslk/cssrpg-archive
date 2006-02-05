@@ -54,7 +54,7 @@ extern IVEngineServer *engine;
 #define CR_STR "[%s: %ld]"
 #define CR_MAX "[%s: MAX]"
 
-CRPG_Menu** CRPG_Menu::nodes;
+template<> CRPG_Menu** CRPG_PlayerClass<CRPG_Menu>::nodes;
 CRPG_Menu** CRPG_Menu::menus;
 unsigned int CRPG_Menu::menu_count;
 
@@ -255,11 +255,47 @@ void CRPG_Menu::SellSelect(unsigned int option) {
 	return ;
 }
 
+#define HELP_LINK_COUNT 4
+struct {
+	char *name;
+	char *link;
+} help_links[HELP_LINK_COUNT] = {
+	{"About CSS:RPG", "http://cssrpg.sourceforge.net/help/cssrpg.html"},
+	{"CSS:RPG Upgrades", "http://cssrpg.sourceforge.net/help/upgrades.html"},
+	{"CSS:RPG Commands", "http://cssrpg.sourceforge.net/help/commands.html"},
+	{"CSS:RPG Acronyms", "http://cssrpg.sourceforge.net/help/acronyms.html"}
+};
+
+void CRPG_Menu::GetHelpPage(void) {
+	unsigned int i;
+
+	for(i = 0;i < HELP_LINK_COUNT;i++) {
+		if(i)
+			BuildOutput(0, "\n");
+		BuildOutput(0, "->%d. %s", i+1, help_links[i].name);
+		SetOptions(i+1);
+	}
+
+	return ;
+}
+
+void CRPG_Menu::HelpSelect(unsigned int option) {
+	if(option > HELP_LINK_COUNT || option < 1) {
+		this->DelMenu();
+		return ;
+	}
+	option--;
+
+	CRPG::ShowMOTD(this->index, help_links[option].name, help_links[option].link, motd_url);
+	this->DelMenu();
+	return ;
+}
+
 void CRPG_Menu::GetMenu(void) {
 	switch(this->submenu) {
 		case none:
 			SetOptions(1, 2, 3, 4, 5);
-			BuildOutput(0, "->1. Upgrades\n->2. Sell\n->3. Stats\n->4. Settings\n->5. Help");
+			BuildOutput(0, "->1. Upgrades\n->2. Sell\n->3. Stats\n->4. Help");
 			break;
 
 		case upgrades:
@@ -273,15 +309,9 @@ void CRPG_Menu::GetMenu(void) {
 		case stats:
 			GetStatsPage();
 			break;
-
-		case settings:
-			SetOptions(1);
-			BuildOutput(0, "Not Finished");
-			break;
 		
 		case help:
-			SetOptions(1);
-			BuildOutput(0, "Not Finished.");
+			GetHelpPage();
 			break;
 
 		default:
@@ -310,15 +340,15 @@ void CRPG_Menu::SetOptions(unsigned int opt_num) {
 
 void CRPG_Menu::SendOutput(char finalize) {
 	MRecipientFilter filter;
-	bf_write *pBuffer;
+	bf_write *buffer;
 
 	filter.AddRecipient(this->index);
-	pBuffer = engine->UserMessageBegin(&filter, 10);
+	buffer = engine->UserMessageBegin(&filter, 10);
 
-	pBuffer->WriteShort((finalize ? this->options : 1 << 9)); //Sets how many options the menu has
-	pBuffer->WriteChar(-1); //Sets how long the menu stays open -1 for stay until option selected
-	pBuffer->WriteByte((finalize ? 0 : 1)); // 0 = Draw Immediately, 1 = Draw Later
-	pBuffer->WriteString(this->menu_out); //The text shown on the menu
+	buffer->WriteShort((finalize ? this->options : 1 << 9)); //Sets how many options the menu has
+	buffer->WriteChar(-1); //Sets how long the menu stays open -1 for stay until option selected
+	buffer->WriteByte((finalize ? 0 : 1)); // 0 = Draw Immediately, 1 = Draw Later
+	buffer->WriteString(this->menu_out); //The text shown on the menu
 
 	engine->MessageEnd();
 
@@ -371,6 +401,8 @@ void CRPG_Menu::CreateMenu(void) {
 		this->DelMenu();
 		return ;
 	}
+
+	this->options = 0;
 	
 	BuildOutput(0, "Credits %ld\n-----\n", player->credits);
 	GetMenu();
@@ -410,12 +442,16 @@ void CRPG_Menu::SelectOption(unsigned int option) {
 			UpgradesSelect(option);
 			break;
 
+		case sell:
+			SellSelect(option);
+			break;
+
 		case stats:
 			this->DelMenu();
 			break;
 
-		case sell:
-			SellSelect(option);
+		case help:
+			HelpSelect(option);
 			break;
 
 		default:
