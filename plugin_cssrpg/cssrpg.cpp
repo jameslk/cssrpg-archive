@@ -183,22 +183,30 @@ void CRPG::init_database(void) {
 	return ;
 }
 
-DB_FUNC(delete_expired_player) {
-	CRPG::db->Query("DELETE FROM %s WHERE items_id = '%d'", TBL_PLAYERS, argv[0]);
-	CRPG::db->Query("DELETE FROM %s WHERE items_id = '%d'", TBL_ITEMS, argv[0]);
-
-	return 0;
-}
-
 void CRPG::DatabaseMaid(void) {
+	tbl_result *result;
+	int query_ok, i;
+
 	if(!save_data)
 		return ;
 
 	db->Query("DELETE FROM %s WHERE level <= '1'", TBL_PLAYERS);
 	if(player_expire) {
-		db->Query(delete_expired_player, 0,
-			"SELECT items_id FROM %s WHERE lastseen <= '%d'", TBL_PLAYERS,
+		query_ok = db->Query(&result, "SELECT items_id FROM %s WHERE lastseen <= '%d'", TBL_PLAYERS,
 			time(NULL)-(86400*CRPG_GlobalSettings::player_expire));
+
+		if(query_ok && (result != NULL)) {
+			if(result->col_count == 1) {
+				for(i = 1;i < result->row_count;i++) {
+					db->Query("DELETE FROM %s WHERE items_id = '%s'", TBL_ITEMS, result->array[i][0]);
+					db->Query("DELETE FROM %s WHERE items_id = '%s'", TBL_PLAYERS, result->array[i][0]);
+				}
+			}
+			FreeResult(result);
+		}
+		else if(!query_ok) {
+			CRPG::DebugMsg("DatabaseMaid: player expire query failed");
+		}
 	}
 
 	db->Query("VACUUM %s", TBL_PLAYERS);
@@ -211,7 +219,7 @@ void CRPG::DatabaseMaid(void) {
 	CRPG_Player Class 
 	////////////////////////////////////// */
 CRPG_Timer* CRPG_Player::autosave_timer;
-CRPG_Player** CRPG_Player::nodes;
+template<> CRPG_Player** CRPG_PlayerClass<CRPG_Player>::nodes;
 CRPG_Player** CRPG_Player::players;
 unsigned int CRPG_Player::player_count;
 
