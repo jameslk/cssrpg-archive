@@ -126,6 +126,7 @@ IBotManager *botmanager = NULL; // game dll interface to interact with bots
 IServerPluginHelpers *helpers = NULL; // special 3rd party plugin helpers from the engine
 IUniformRandomStream *randomStr = NULL;
 IEngineTrace *enginetrace = NULL;
+IServerGameDLL *gamedll = NULL;
 
 IVoiceServer	*g_pVoiceServer = NULL;
 ICvar			*cvar = NULL;
@@ -215,55 +216,56 @@ CPluginCSSRPG::~CPluginCSSRPG() {
 //---------------------------------------------------------------------------------
 bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn gameServerFactory) {
 	playerinfomanager = (IPlayerInfoManager*)gameServerFactory(INTERFACEVERSION_PLAYERINFOMANAGER, NULL);
+	if(!playerinfomanager)
+		CRPG::ConsoleMsg("Unable to load playerinfomanager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	if (!playerinfomanager) {
-		Warning("Unable to load playerinfomanager, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
+	modelinfo = (IVModelInfo*)gameServerFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
+	if(!modelinfo)
+		CRPG::ConsoleMsg("Unable to load modelinfo, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	modelinfo = (IVModelInfo *)gameServerFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
-	if (!modelinfo) {
-		Warning("Unable to load modelinfo, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
-	effects = (IEffects *)gameServerFactory(IEFFECTS_INTERFACE_VERSION,NULL);
-	if (!effects) {
-		Warning("Unable to load effects engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
+	effects = (IEffects*)gameServerFactory(IEFFECTS_INTERFACE_VERSION,NULL);
+	if(!effects)
+		CRPG::ConsoleMsg("Unable to load effects engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+
 	esounds = (IEngineSound*)interfaceFactory(IENGINESOUND_SERVER_INTERFACE_VERSION, NULL); 
-    if (!esounds) {
-		Warning("Unable to load sounds engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
-	partition = (ISpatialPartition *)gameServerFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
-    if (!partition) {
-		Warning("Unable to load partition engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
+    if(!esounds)
+		CRPG::ConsoleMsg("Unable to load sounds engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+
+	partition = (ISpatialPartition*)gameServerFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
+    if(!partition)
+		CRPG::ConsoleMsg("Unable to load partition engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+
 	g_pVoiceServer = (IVoiceServer*)gameServerFactory(INTERFACEVERSION_VOICESERVER, NULL);
-    if (!g_pVoiceServer) {
-		Warning("Unable to load VoiceServer engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
+    if(!g_pVoiceServer)
+		CRPG::ConsoleMsg("Unable to load VoiceServer engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+
 	engineCache = (IVEngineCache*)gameServerFactory(VENGINE_CACHE_INTERFACE_VERSION, NULL);
-    if (!engineCache) {
-		Warning("Unable to load Engine Cache, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
-	staticpropmgr = (IStaticPropMgrServer *)gameServerFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
-    if (!staticpropmgr) {
-		Warning("Unable to load Static Prob Manager, ignoring\n"); // this isn't fatal, we just won't be able to access specific player data
-	}
-	randomStr = (IUniformRandomStream *)gameServerFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL);
-	if (!randomStr) {
-		Warning("Unable to load random number engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific bot functions
-	}
-	soundemitterbase = (ISoundEmitterSystemBase *)gameServerFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
-	if (!soundemitterbase) {
-		Warning("Unable to load sound emitter engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific bot functions
-	}
+    if(!engineCache)
+		CRPG::ConsoleMsg("Unable to load Engine Cache, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+
+	staticpropmgr = (IStaticPropMgrServer*)gameServerFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
+    if(!staticpropmgr)
+		CRPG::ConsoleMsg("Unable to load Static Prob Manager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+
+	randomStr = (IUniformRandomStream*)gameServerFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL);
+	if(!randomStr)
+		CRPG::ConsoleMsg("Unable to load random number engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
+
+	soundemitterbase = (ISoundEmitterSystemBase*)gameServerFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
+	if(!soundemitterbase)
+		CRPG::ConsoleMsg("Unable to load sound emitter engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
+
 	cvar = (ICvar*)gameServerFactory(VENGINE_CVAR_INTERFACE_VERSION, NULL);
-	if (!cvar) {
-		Warning("Unable to load cvar engine, ignoring\n"); // this isn't fatal, we just won't be able to access specific bot functions
-	}
-	botmanager = (IBotManager *)gameServerFactory(INTERFACEVERSION_PLAYERBOTMANAGER, NULL);
-	if (!botmanager) {
-		Warning("Unable to load botcontroller, ignoring\n"); // this isn't fatal, we just won't be able to access specific bot functions
-	}
+	if(!cvar)
+		CRPG::ConsoleMsg("Unable to load cvar engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
+
+	botmanager = (IBotManager*)gameServerFactory(INTERFACEVERSION_PLAYERBOTMANAGER, NULL);
+	if(!botmanager)
+		CRPG::ConsoleMsg("Unable to load botcontroller, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
+
+	networkstringtable = (INetworkStringTableContainer*)gameServerFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
+	if(!networkstringtable)
+		CRPG::ConsoleMsg("Unable to load Network String Table, ignoring", MTYPE_WARNING);
 
 	// get the interfaces we want to use
 	if(!(engine = (IVEngineServer*)interfaceFactory(INTERFACEVERSION_VENGINESERVER, NULL)) ||
@@ -271,11 +273,13 @@ bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
 		!(filesystem = (IFileSystem*)interfaceFactory(FILESYSTEM_INTERFACE_VERSION, NULL)) ||
 		!(helpers = (IServerPluginHelpers*)interfaceFactory(INTERFACEVERSION_ISERVERPLUGINHELPERS, NULL)) || 
 		!(enginetrace = (IEngineTrace*)interfaceFactory(INTERFACEVERSION_ENGINETRACE_SERVER, NULL)) ||
-		!(randomStr = (IUniformRandomStream*)interfaceFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL))) {
+		!(randomStr = (IUniformRandomStream*)interfaceFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL)) ||
+		!(gamedll = (IServerGameDLL*)gameServerFactory("ServerGameDLL004", NULL))) {
+			CRPG::ConsoleMsg("Failed to load a game interface", MTYPE_ERROR);
 			return false; // we require all these interface to function
 	}
 
-	if (playerinfomanager) {
+	if(playerinfomanager) {
 		gpGlobals = playerinfomanager->GetGlobalVars();
 	}
 
@@ -354,6 +358,7 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 		esounds->PrecacheSound("buttons/blip2.wav", true);
 	}
 
+	CRPG_Utils::Init();
 	CRPG_Player::Init();
 	CRPG_Menu::Init();
 	init_sigs();
@@ -401,7 +406,7 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	CRPGI_HBonus::AddPlayer(pEntity);
 
 	if(CRPG::IsValidIndex(index)) {
-		CRPG::ChatAreaMsg(index, "This server is running CSS:RPG v%s.", CSSRPG_VERSION);
+		CRPG::ChatAreaMsg(index, "This server is running CSS:RPG v%s (cssrpg.sf.net).", CSSRPG_VERSION);
 		CRPG::ChatAreaMsg(index, "Type \"rpgmenu\" to bring up your options.");
 	}
 
@@ -437,16 +442,6 @@ void CPluginCSSRPG::ClientDisconnect(edict_t *pEntity) {
 // Purpose: Client is connected and should be put in the game
 //---------------------------------------------------------------------------------
 void CPluginCSSRPG::ClientPutInServer(edict_t *pEntity, char const *playername) {
-	KeyValues *kv = new KeyValues("msg");
-
-	kv->SetString("title", "Server undergoing testing");
-	kv->SetString("msg", "Server undergoing testing");
-	kv->SetColor("color", Color(255, 0, 0, 255));
-	kv->SetInt("level", 5);
-	kv->SetInt("time", 20);
-	helpers->CreateMessage(pEntity, DIALOG_MSG, kv, this);
-	kv->deleteThis();
-
 	return ;
 }
 
@@ -476,8 +471,11 @@ PLUGIN_RESULT CPluginCSSRPG::ClientConnect(bool *bAllowConnect, edict_t *pEntity
 // Purpose: called when a client types in a command (only a subset of commands however, not CON_COMMAND's)
 //---------------------------------------------------------------------------------
 PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
-	const char *pcmd;
+	static char rpgstr[] = "rpg";
+	char *pcmd;
 	CRPG_Menu *menu;
+	submenu_t type;
+	int i;
 
 	if(!pEntity || pEntity->IsFree()) {
 		return PLUGIN_CONTINUE;
@@ -502,13 +500,34 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 		menu->CreateMenu();
 		return PLUGIN_STOP;
 	}
-	else if(FStrEq(pcmd, "rpgstats")) {
+	else {
+		i = 0;
+		while(pcmd) {
+			if(*pcmd++ != rpgstr[i++])
+				return PLUGIN_CONTINUE;
+			if(i >= 3)
+				break;
+		}
+
+		if(FStrEq(pcmd, "stats"))
+			type = stats;
+		else if(FStrEq(pcmd, "buy"))
+			type = upgrades;
+		else if(FStrEq(pcmd, "upgrades"))
+			type = upgrades;
+		else if(FStrEq(pcmd, "help"))
+			type = help;
+		else if(FStrEq(pcmd, "sell"))
+			type = sell;
+		else
+			return PLUGIN_CONTINUE;
+
 		menu = CRPG_Menu::AddMenu(pEntity);
 		if(menu == NULL) {
 			CRPG::ConsoleMsg("menu = NULL (3)", MTYPE_ERROR);
 			return PLUGIN_STOP;
 		}
-		menu->submenu = stats;
+		menu->submenu = type;
 		menu->CreateMenu();
 		return PLUGIN_STOP;
 	}
@@ -571,6 +590,17 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 				CRPG::ConsoleMsg("menu = NULL (2)", MTYPE_ERROR);
 				return ;
 			}
+			menu->CreateMenu();
+		}
+		else if(FStrEq(text, "rpghelp")) {
+			CRPG_Menu *menu;
+
+			menu = CRPG_Menu::AddMenu(CRPG::UserIDtoEdict(userid));
+			if(menu == NULL) {
+				CRPG::ConsoleMsg("menu = NULL (4)", MTYPE_ERROR);
+				return ;
+			}
+			menu->submenu = help;
 			menu->CreateMenu();
 		}
 	}
