@@ -54,6 +54,7 @@ extern IVEngineServer *engine;
 #define CR_STR "[%s: %ld]"
 #define CR_MAX "[%s: MAX]"
 
+template class CRPG_PlayerClass<CRPG_Menu>;
 template<> CRPG_Menu** CRPG_PlayerClass<CRPG_Menu>::nodes;
 CRPG_Menu** CRPG_Menu::menus;
 unsigned int CRPG_Menu::menu_count;

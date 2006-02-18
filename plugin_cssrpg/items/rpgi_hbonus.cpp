@@ -40,7 +40,8 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-CRPGI_HBonus** CRPGI_HBonus::nodes;
+template class CRPG_PlayerClass<CRPGI_HBonus>;
+template<> CRPGI_HBonus** CRPG_PlayerClass<CRPGI_HBonus>::nodes;
 CRPGI_HBonus** CRPGI_HBonus::health_array;
 unsigned int CRPGI_HBonus::health_count;
 

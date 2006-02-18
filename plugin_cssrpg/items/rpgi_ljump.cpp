@@ -41,9 +41,10 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-CRPGI_LJump* CRPGI_LJump::ll_first;
-CRPGI_LJump* CRPGI_LJump::ll_last;
-unsigned int CRPGI_LJump::ll_count;
+template class CRPG_LinkedList<CRPGI_LJump>;
+template<> CRPGI_LJump* CRPG_LinkedList<CRPGI_LJump>::ll_first;
+template<> CRPGI_LJump* CRPG_LinkedList<CRPGI_LJump>::ll_last;
+template<> unsigned int CRPG_LinkedList<CRPGI_LJump>::ll_count;
 
 void CRPGI_LJump::Init(void) {
 	return ;

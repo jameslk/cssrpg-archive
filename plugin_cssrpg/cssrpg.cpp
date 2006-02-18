@@ -218,6 +218,7 @@ void CRPG::DatabaseMaid(void) {
 /*	//////////////////////////////////////
 	CRPG_Player Class 
 	////////////////////////////////////// */
+template class CRPG_PlayerClass<CRPG_Player>;
 CRPG_Timer* CRPG_Player::autosave_timer;
 template<> CRPG_Player** CRPG_PlayerClass<CRPG_Player>::nodes;
 CRPG_Player** CRPG_Player::players;

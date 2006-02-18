@@ -378,6 +378,7 @@ void CRPG_Utils::Init() {
 /*	//////////////////////////////////////
 	CRPG_Timer Class 
 	////////////////////////////////////// */
+template class CRPG_LinkedList<CRPG_Timer>;
 template<> CRPG_Timer* CRPG_LinkedList<CRPG_Timer>::ll_first;
 template<> CRPG_Timer* CRPG_LinkedList<CRPG_Timer>::ll_last;
 template<> unsigned int CRPG_LinkedList<CRPG_Timer>::ll_count;
