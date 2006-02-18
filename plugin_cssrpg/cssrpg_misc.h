@@ -182,7 +182,7 @@ public:
 	CBasePlayer* cbp(void) {
 		edict_t *e = CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index);
 		if(CRPG_Utils::IsValidEdict(e))
-			return static_cast<CBasePlayer*>(e->GetUnknown()->GetBaseEntity());
+			return reinterpret_cast<CBasePlayer*>(e->GetUnknown()->GetBaseEntity());
 		else
 			return NULL;
 	}
