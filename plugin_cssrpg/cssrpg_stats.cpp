@@ -182,7 +182,13 @@ unsigned int CRPG_RankManager::GetPlayerRank(CRPG_Player *player) {
 }
 
 unsigned int CRPG_RankManager::GetRankCount(void) {
+	unsigned int i = CRPG_Player::player_count;
 	int count = CRPG::db->RowCount(TBL_PLAYERS);
+
+	while(i--) {
+		if(CRPG_Player::players[i]->dbinfo.player_id < 0) 
+			count++; /* accounts for players not saved in the db */
+	}
 
 	if(count > 0)
 		return count;
