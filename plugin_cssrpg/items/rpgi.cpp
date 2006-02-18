@@ -86,7 +86,7 @@ unsigned int CRPGI::GetItemSale(unsigned int item_index, unsigned int lvl) {
 		return item->start_cost;
 
 	cost = (item->inc_cost*(lvl-1))+item->start_cost;
-	cost = floor(((float)cost*(sale_percent > 1.0 ? (sale_percent/100.0) : sale_percent))+0.5);
+	cost = (unsigned int)floor(((float)cost*(sale_percent > 1.0 ? (sale_percent/100.0) : sale_percent))+0.5);
 
 	if(credits_inc <= 1)
 		return cost;
