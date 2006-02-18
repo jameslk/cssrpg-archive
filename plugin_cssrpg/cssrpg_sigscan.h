@@ -44,13 +44,15 @@ private:
 
 	unsigned char *sig_str;
 	char *sig_mask;
-	size_t sig_len;
+	unsigned long sig_len;
 
 	/* Private Functions */
+	static unsigned int parse_maps(char *maps, char *matchpath, long *base, long *len);
 	void* FindSignature(void);
 
 public:
 	/* Public Variables */
+	char sig_name[64];
 	char is_set; /* if the scan was successful or not */
 	void *sig_addr;
 
@@ -59,7 +61,7 @@ public:
 	~CRPG_SigScan(void);
 
 	static bool GetDllMemInfo(void);
-	void Init(unsigned char *sig, char *mask, size_t len);
+	void Init(char *name, unsigned char *sig, char *mask, size_t len);
 };
 
 void init_sigs(void);
