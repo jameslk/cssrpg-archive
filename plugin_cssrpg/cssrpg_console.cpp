@@ -316,10 +316,10 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("vamp_cost", "15", "Vampire item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("vamp_icost", "10", "Vampire item cost increment for each level", var_uint, &type->inc_cost);
 
-	type = &CRPG::item_types[ITEM_STEALTH];
+	/*type = &CRPG::item_types[ITEM_STEALTH];
 	CRPG_Setting::CreateVar("stealth_enable", "0", "Sets the Stealth item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("stealth_cost", "15", "Stealth item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("stealth_icost", "15", "Stealth item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("stealth_icost", "15", "Stealth item cost increment for each level", var_uint, &type->inc_cost);*/
 
 	type = &CRPG::item_types[ITEM_LJUMP];
 	CRPG_Setting::CreateVar("ljump_enable", "1", "Sets the LongJump item to enabled (1) or disabled (0)", var_bool, &type->enable);

@@ -101,11 +101,11 @@ void CRPG::init_item_types(void) {
 	item_types[ITEM_VAMP].sell_item = CRPGI_Vamp::SellItem;
 
 	/* Stealth */
-	strcpy(item_types[ITEM_STEALTH].name, "Stealth");
+	/*strcpy(item_types[ITEM_STEALTH].name, "Stealth");
 	strcpy(item_types[ITEM_STEALTH].shortname, "stealth");
 	item_types[ITEM_STEALTH].maxlevel = 5;
 	item_types[ITEM_STEALTH].buy_item = CRPGI_Stealth::BuyItem;
-	item_types[ITEM_STEALTH].sell_item = CRPGI_Stealth::SellItem;
+	item_types[ITEM_STEALTH].sell_item = CRPGI_Stealth::SellItem;*/
 
 	/* LJump */
 	strcpy(item_types[ITEM_LJUMP].name, "LongJump");

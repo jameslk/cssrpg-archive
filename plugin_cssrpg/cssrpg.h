@@ -30,11 +30,11 @@
 #define ITEM_HBONUS		1
 #define ITEM_RESUP		2
 #define ITEM_VAMP		3
-#define ITEM_STEALTH	4
-#define ITEM_LJUMP		5
-#define ITEM_FNADE		6
+//#define ITEM_STEALTH	4
+#define ITEM_LJUMP		4
+#define ITEM_FNADE		5
 
-#define ITEM_COUNT		7
+#define ITEM_COUNT		6
 
 struct item_type {
 	char name[16];
