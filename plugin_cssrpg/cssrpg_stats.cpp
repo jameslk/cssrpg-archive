@@ -90,8 +90,8 @@ void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc
 		CRPG::EmitSound(player->index, "buttons/blip2.wav");
 		if((player->level-lvl_inc) <= 1) {
 			/* for newbies */
-			CRPG::ChatAreaMsg(player->index, "You have gained a new Level! This means you can buy Upgrades which give you an advantage over your opponents.");
-			CRPG::ChatAreaMsg(player->index, "Type \"rpgmenu\" in chat, or type it into the console to bring up a menu from which you can buy Upgrades.");
+			CRPG::ChatAreaMsg(player->index, "\x04You have gained a new Level! This means you can buy Upgrades which give you an advantage over your opponents.\x01");
+			CRPG::ChatAreaMsg(player->index, "\x04Type \"\x03rpgmenu\x04\" in chat, or type it into the console to bring up a menu from which you can buy Upgrades.\x01");
 		}
 		else {
 			CRPG::ChatAreaMsg(player->index, "You have new credits (%ld total). Type \"rpgmenu\" to buy upgrades.", player->credits);
