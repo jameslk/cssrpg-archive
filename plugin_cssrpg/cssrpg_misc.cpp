@@ -241,7 +241,7 @@ void CRPG_Utils::ChatAreaMsg(int index, char *msgf, ...) {
 	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), 3);
 	buffer->WriteByte(0);
 	buffer->WriteString(msg);
-	buffer->WriteByte(1);
+	buffer->WriteByte(0);
 	engine->MessageEnd();
 
 	return ;
