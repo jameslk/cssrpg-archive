@@ -327,6 +327,8 @@ CRPG_SigScan CBaseAnimating_Ignite_Sig;
 CRPG_SigScan CBaseEntity_Teleport_Sig;
 CRPG_SigScan CBaseCombatCharacter_Weapon_GetSlot_Sig;
 CRPG_SigScan CBaseCombatCharacter_GiveAmmo_Sig;
+CRPG_SigScan CBaseEntity_SetRenderColor_Sig;
+CRPG_SigScan CBaseEntity_SetRenderMode_Sig;
 
 void init_sigs(void) {
 	CRPG_SigScan::GetDllMemInfo();
@@ -424,6 +426,37 @@ CBaseCombatCharacter_GiveAmmo_Sig.Init("CBaseCombatCharacter::GiveAmmo",
 65);
 #endif
 
+	/* void CBaseEntity::SetRenderColor(byte r, byte g, byte b);
+	Last Address: 22053860
+	Signature: 83 C1 24 E9 18? F9? FF? FF? */
+#ifdef WIN32
+CBaseEntity_SetRenderColor_Sig.Init("CBaseEntity::SetRenderColor",
+(unsigned char*)"\x83\xC1\x24\xE9\x18\xF9\xFF\xFF",
+"xxxx????",
+8);
+#else
+CBaseEntity_SetRenderColor_Sig.Init("CBaseEntity::SetRenderColor",
+(unsigned char*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+50);
+#endif
+
+	/* void CBaseEntity::SetRenderMode(RenderMode_t nRenderMode);
+	Last Address: 220F2220
+	Signature: 8B 54 24 04 39 51 20 74? 26? 80 B9 F0 01 00 00 00 74? 0D? C6 81 00 02 00 00 01 89 51 20 C2 04 00 */
+#ifdef WIN32
+CBaseEntity_SetRenderMode_Sig.Init("CBaseEntity::SetRenderMode",
+(unsigned char*)"\x8B\x54\x24\x04\x39\x51\x20\x74\x26\x80\xB9\xF0\x01\x00\x00\x00\x74\x0D\xC6\x81\
+\x00\x02\x00\x00\x01\x89\x51\x20\xC2\x04\x00",
+"xxxxxxx??xxxxxxx??xxxxxxxxxxxxx",
+31);
+#else
+CBaseEntity_SetRenderMode_Sig.Init("CBaseEntity::SetRenderMode",
+(unsigned char*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+50);
+#endif
+
 	return ;
 }
 
@@ -497,4 +530,38 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 	#endif
 
 	return ret;
+}
+
+void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a) {
+	if(!CBaseEntity_SetRenderColor_Sig.is_set)
+		return ;
+
+	#ifdef WIN32
+	typedef void (__fastcall *func)(CBaseEntity*, void*, byte, byte, byte, byte);
+	func thisfunc = (func)CBaseEntity_SetRenderColor_Sig.sig_addr;
+	thisfunc(cbe, 0, r, b, g, a);
+	#else
+	typedef void (*func)(CBaseEntity*, byte, byte, byte, byte);
+	func thisfunc = (func)CBaseEntity_SetRenderColor_Sig.sig_addr;
+	thisfunc(cbe, r, b, g, a);
+	#endif
+
+	return ;
+}
+
+void CBaseEntity_SetRenderMode(CBaseEntity *cbe, RenderMode_t nRenderMode) {
+	if(!CBaseEntity_SetRenderMode_Sig.is_set)
+		return ;
+
+	#ifdef WIN32
+	typedef void (__fastcall *func)(CBaseEntity*, void*, RenderMode_t);
+	func thisfunc = (func)CBaseEntity_SetRenderMode_Sig.sig_addr;
+	thisfunc(cbe, 0, nRenderMode);
+	#else
+	typedef void (*func)(CBaseEntity*, RenderMode_t);
+	func thisfunc = (func)CBaseEntity_SetRenderMode_Sig.sig_addr;
+	thisfunc(cbe, nRenderMode);
+	#endif
+
+	return ;
 }

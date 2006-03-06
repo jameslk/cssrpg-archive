@@ -77,5 +77,7 @@ void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPC
 void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity);
 CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbcc, int slot);
 int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound = 0);
+void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a);
+void CBaseEntity_SetRenderMode(CBaseEntity *cbe, RenderMode_t nRenderMode);
 
 #endif
