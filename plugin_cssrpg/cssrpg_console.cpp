@@ -44,10 +44,6 @@ extern CGlobalVars *gpGlobals;
 /*	//////////////////////////////////////
 	Server Console Commands
 	////////////////////////////////////// */
-CON_COMMAND(cssrpg_version, "Prints out the version of this CSSRPG Plugin") {
-	Msg("Version: %s\n", CSSRPG_VERSION);
-}
-
 CON_COMMAND(cssrpg_debug_playerlist, "List all RPG players") {
 	unsigned int i = CRPG_Player::player_count;
 	CRPG_Player *player;
@@ -85,6 +81,12 @@ CON_COMMAND(cssrpg_debug_timers, "List all timers") {
 	CRPG::DebugMsg("* End of timers list", CRPG::s_globals()->curtime);
 	return ;
 }
+
+/*	//////////////////////////////////////
+	Static Server Variables
+	////////////////////////////////////// */
+static ConVar cssrpg_version("cssrpg_version", CSSRPG_VERSION,
+		FCVAR_REPLICATED | FCVAR_SPONLY | FCVAR_NOTIFY, "CSS:RPG plugin version");
 
 /*	//////////////////////////////////////
 	CRPG_Setting Class
@@ -316,10 +318,10 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("vamp_cost", "15", "Vampire item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("vamp_icost", "10", "Vampire item cost increment for each level", var_uint, &type->inc_cost);
 
-	/*type = &CRPG::item_types[ITEM_STEALTH];
-	CRPG_Setting::CreateVar("stealth_enable", "0", "Sets the Stealth item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	type = &CRPG::item_types[ITEM_STEALTH];
+	CRPG_Setting::CreateVar("stealth_enable", "1", "Sets the Stealth item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("stealth_cost", "15", "Stealth item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("stealth_icost", "15", "Stealth item cost increment for each level", var_uint, &type->inc_cost);*/
+	CRPG_Setting::CreateVar("stealth_icost", "15", "Stealth item cost increment for each level", var_uint, &type->inc_cost);
 
 	type = &CRPG::item_types[ITEM_LJUMP];
 	CRPG_Setting::CreateVar("ljump_enable", "1", "Sets the LongJump item to enabled (1) or disabled (0)", var_bool, &type->enable);
