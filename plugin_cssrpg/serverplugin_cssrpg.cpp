@@ -376,6 +376,7 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPG_Timer::RunEvents();
 	CRPGI_LJump::CheckAll();
+	CRPG_Player::AutoSave(0);
 
 	return ;
 }
@@ -406,7 +407,7 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	CRPGI_HBonus::AddPlayer(pEntity);
 
 	if(CRPG::IsValidIndex(index)) {
-		CRPG::ChatAreaMsg(index, "This server is running CSS:RPG v%s (http://cssrpg.sf.net).", CSSRPG_VERSION);
+		CRPG::ChatAreaMsg(index, "\x01This server is running CSS:RPG v%s (\x04http://cssrpg.sf.net\x01).", CSSRPG_VERSION);
 		CRPG::ChatAreaMsg(index, "Type \"rpgmenu\" to bring up your options.");
 	}
 
@@ -568,7 +569,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		player->css.isdead = 0;
 
 		CRPGI_HBonus::SetSpawnHealth(player);
-		//CRPGI_Stealth::SetVisibility(player);
+		CRPGI_Stealth::SetVisibility(player);
 	}
 	else if(FStrEq(name, "player_death")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
@@ -610,6 +611,9 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 
 		if(player == NULL)
 			return ;
+
+		if((player->level <= 1) && (player->css.team == team_none))
+			CRPG::ShowMOTD(player->index, "CSS:RPG Disclaimer", "http://cssrpg.sourceforge.net/help/disclaimer.html", motd_url);
 
 		team = event->GetInt("team");
 
