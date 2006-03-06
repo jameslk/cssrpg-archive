@@ -101,11 +101,11 @@ void CRPG::init_item_types(void) {
 	item_types[ITEM_VAMP].sell_item = CRPGI_Vamp::SellItem;
 
 	/* Stealth */
-	/*strcpy(item_types[ITEM_STEALTH].name, "Stealth");
+	strcpy(item_types[ITEM_STEALTH].name, "Stealth");
 	strcpy(item_types[ITEM_STEALTH].shortname, "stealth");
 	item_types[ITEM_STEALTH].maxlevel = 5;
 	item_types[ITEM_STEALTH].buy_item = CRPGI_Stealth::BuyItem;
-	item_types[ITEM_STEALTH].sell_item = CRPGI_Stealth::SellItem;*/
+	item_types[ITEM_STEALTH].sell_item = CRPGI_Stealth::SellItem;
 
 	/* LJump */
 	strcpy(item_types[ITEM_LJUMP].name, "LongJump");
@@ -219,7 +219,6 @@ void CRPG::DatabaseMaid(void) {
 	CRPG_Player Class 
 	////////////////////////////////////// */
 template class CRPG_PlayerClass<CRPG_Player>;
-CRPG_Timer* CRPG_Player::autosave_timer;
 template<> CRPG_Player** CRPG_PlayerClass<CRPG_Player>::nodes;
 CRPG_Player** CRPG_Player::players;
 unsigned int CRPG_Player::player_count;
@@ -234,31 +233,35 @@ void CRPG_Player::Init(void) {
 		players[i] = NULL;
 
 	nodes = players;
-
-	autosave_timer = CRPG_Timer::AddTimer(150, 0, CRPG_Player::AutoSave, 0);
-
 	return ;
 }
 
 void CRPG_Player::ShutDown(void) {
-	autosave_timer->DelTimer();
-	AutoSave(NULL, 0);
+	AutoSave(1);
 	free_nodes(player_count);
 
 	return ;
 }
 
-TIMER_FUNC(CRPG_Player::AutoSave) {
-	unsigned int i = player_count;
+void CRPG_Player::AutoSave(char force) { /* Each player is saved each frame */
+	static int saveplayer = player_count;
+	static float nextrun = gpGlobals->curtime+AUTOSAVE_DURATION;
 
-	if(!enable || !save_data)
+	if(!force && (gpGlobals->curtime < nextrun))
 		return ;
 
-	while(i--) {
-		if(players[i] != NULL)
-			players[i]->SaveData();
+	if((saveplayer < 0) || !enable || !save_data) {
+		saveplayer = player_count;
+		nextrun = gpGlobals->curtime+AUTOSAVE_DURATION;
+		return ;
 	}
 
+	CRPG::DebugMsg("Player: %d", saveplayer);
+
+	if(players[saveplayer] != NULL)
+		players[saveplayer]->SaveData();
+
+	saveplayer--;
 	return ;
 }
 

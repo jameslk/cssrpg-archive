@@ -18,7 +18,7 @@
 #ifndef CSSRPG_H
 #define CSSRPG_H
 
-#define CSSRPG_VERSION "1.0.0b"
+#define CSSRPG_VERSION "1.0.1b"
 
 #define CSSRPG_DB "cssrpg.db"
 /* Columns: [int player_id] [string name] [string steamid] [int level] [int exp] [int credits] [int lastseen] [int items_id] */
@@ -26,15 +26,17 @@
 /* Columns: [int items_id] [regen] [hbonus] [...] */
 #define TBL_ITEMS "items"
 
+#define AUTOSAVE_DURATION 150
+
 #define ITEM_REGEN		0
 #define ITEM_HBONUS		1
 #define ITEM_RESUP		2
 #define ITEM_VAMP		3
-//#define ITEM_STEALTH	4
-#define ITEM_LJUMP		4
-#define ITEM_FNADE		5
+#define ITEM_STEALTH	4
+#define ITEM_LJUMP		5
+#define ITEM_FNADE		6
 
-#define ITEM_COUNT		6
+#define ITEM_COUNT		7
 
 struct item_type {
 	char name[16];
@@ -98,8 +100,6 @@ class IPlayerInfo;
 class CBasePlayer;
 class CRPG_Timer;
 class CRPG_Player: public CRPG_PlayerClass<CRPG_Player>, private CRPG_GlobalSettings {
-	static CRPG_Timer *autosave_timer;
-
 public:
 	/* Public Variables */
 	static CRPG_Player **players;
@@ -143,7 +143,7 @@ public:
 	static void Init(void);
 	static void ShutDown(void);
 
-	static TIMER_FUNC(AutoSave);
+	static void AutoSave(char force);
 
 	static CRPG_Player* AddPlayer(edict_t *e);
 	unsigned int DelPlayer(void);
