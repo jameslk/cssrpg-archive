@@ -86,8 +86,10 @@ TIMER_FUNC(CRPGI_Resup::IncreaseAmmo) {
 			if((lvl = player->items[ITEM_RESUP].level)) {
 				cbcc = static_cast<CBaseCombatCharacter*>(player->cbp());
 				ii = 15;
-				while(ii--)
-					CBaseCombatCharacter_GiveAmmo(cbcc, lvl, ii, 1);
+				while(ii--) {
+					if(ii != 12) /* 12 = flashbang */
+						CBaseCombatCharacter_GiveAmmo(cbcc, lvl, ii, 1);
+				}
 			}
 		}
 	}
