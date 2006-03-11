@@ -102,7 +102,7 @@
 #include "cssrpg_menu.h"
 #include "cssrpg_stats.h"
 #include "cssrpg_console.h"
-#include "cssrpg_sigscan.h"
+#include "cssrpg_hacks.h"
 #include "cssrpg_database.h"
 
 #include "items/rpgi.h"
@@ -219,7 +219,7 @@ bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
 	if(!playerinfomanager)
 		CRPG::ConsoleMsg("Unable to load playerinfomanager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	modelinfo = (IVModelInfo*)gameServerFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
+	modelinfo = (IVModelInfo*)interfaceFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
 	if(!modelinfo)
 		CRPG::ConsoleMsg("Unable to load modelinfo, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
@@ -231,31 +231,31 @@ bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
     if(!esounds)
 		CRPG::ConsoleMsg("Unable to load sounds engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	partition = (ISpatialPartition*)gameServerFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
+	partition = (ISpatialPartition*)interfaceFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
     if(!partition)
 		CRPG::ConsoleMsg("Unable to load partition engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	g_pVoiceServer = (IVoiceServer*)gameServerFactory(INTERFACEVERSION_VOICESERVER, NULL);
+	g_pVoiceServer = (IVoiceServer*)interfaceFactory(INTERFACEVERSION_VOICESERVER, NULL);
     if(!g_pVoiceServer)
 		CRPG::ConsoleMsg("Unable to load VoiceServer engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	engineCache = (IVEngineCache*)gameServerFactory(VENGINE_CACHE_INTERFACE_VERSION, NULL);
+	engineCache = (IVEngineCache*)interfaceFactory(VENGINE_CACHE_INTERFACE_VERSION, NULL);
     if(!engineCache)
 		CRPG::ConsoleMsg("Unable to load Engine Cache, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	staticpropmgr = (IStaticPropMgrServer*)gameServerFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
+	staticpropmgr = (IStaticPropMgrServer*)interfaceFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
     if(!staticpropmgr)
 		CRPG::ConsoleMsg("Unable to load Static Prob Manager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	randomStr = (IUniformRandomStream*)gameServerFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL);
+	randomStr = (IUniformRandomStream*)interfaceFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL);
 	if(!randomStr)
 		CRPG::ConsoleMsg("Unable to load random number engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
-	soundemitterbase = (ISoundEmitterSystemBase*)gameServerFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
+	soundemitterbase = (ISoundEmitterSystemBase*)interfaceFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
 	if(!soundemitterbase)
 		CRPG::ConsoleMsg("Unable to load sound emitter engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
-	cvar = (ICvar*)gameServerFactory(VENGINE_CVAR_INTERFACE_VERSION, NULL);
+	cvar = (ICvar*)interfaceFactory(VENGINE_CVAR_INTERFACE_VERSION, NULL);
 	if(!cvar)
 		CRPG::ConsoleMsg("Unable to load cvar engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
@@ -263,7 +263,7 @@ bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
 	if(!botmanager)
 		CRPG::ConsoleMsg("Unable to load botcontroller, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
-	networkstringtable = (INetworkStringTableContainer*)gameServerFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
+	networkstringtable = (INetworkStringTableContainer*)interfaceFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
 	if(!networkstringtable)
 		CRPG::ConsoleMsg("Unable to load Network String Table, ignoring", MTYPE_WARNING);
 
@@ -361,7 +361,13 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	CRPG_Utils::Init();
 	CRPG_Player::Init();
 	CRPG_Menu::Init();
+
+	#ifdef WIN32
 	init_sigs();
+	#else
+	init_lsym_funcs();
+	#endif
+
 	CRPGI::Init();
 	CRPG::DatabaseMaid();
 	is_shutdown = 0;
