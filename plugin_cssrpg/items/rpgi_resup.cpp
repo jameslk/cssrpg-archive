@@ -34,7 +34,7 @@
 #define GAME_DLL 1
 
 #include "../cssrpg.h"
-#include "../cssrpg_sigscan.h"
+#include "../cssrpg_hacks.h"
 #include "rpgi.h"
 #include "rpgi_resup.h"
 
