@@ -394,6 +394,7 @@ void CPluginCSSRPG::LevelShutdown(void) { // !!!!this can get called multiple ti
 	gameeventmanager->RemoveListener(this);
 
 	if(!is_shutdown) {
+		CRPG_Player::SaveAll();
 		CRPG_Player::ShutDown();
 		CRPG_Menu::ShutDown();
 		CRPGI::ShutDown();
