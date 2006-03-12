@@ -77,21 +77,28 @@ unsigned int CRPGI::GetItemCost(unsigned int item_index, unsigned int lvl) {
 }
 
 unsigned int CRPGI::GetItemSale(unsigned int item_index, unsigned int lvl) {
-	unsigned int cost;
+	unsigned int cost, sale;
 	struct item_type *item;
 
 	item = &CRPG::item_types[item_index];
+	cost = (item->inc_cost*(lvl-1))+item->start_cost;
+
+	if(sale_percent == 1.0)
+		return cost;
 	
 	if(lvl <= 1)
 		return item->start_cost;
 
-	cost = (item->inc_cost*(lvl-1))+item->start_cost;
-	cost = (unsigned int)floor(((float)cost*(sale_percent > 1.0 ? (sale_percent/100.0) : sale_percent))+0.5);
+	sale = (item->inc_cost*(lvl-1))+item->start_cost;
+	sale = (unsigned int)floor(((float)sale*(sale_percent > 1.0 ? (sale_percent/100.0) : sale_percent))+0.5);
 
 	if(credits_inc <= 1)
-		return cost;
+		return sale;
 	else
-		cost = (cost + (unsigned int)floor((float)credits_inc/2.0)) / credits_inc * credits_inc;
+		sale = (sale + (unsigned int)floor((float)credits_inc/2.0)) / credits_inc * credits_inc;
 
-	return cost;
+	if(sale > cost)
+		return cost;
+
+	return sale;
 }
