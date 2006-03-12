@@ -18,7 +18,7 @@
 #ifndef CSSRPG_H
 #define CSSRPG_H
 
-#define CSSRPG_VERSION "1.0.1b"
+#define CSSRPG_VERSION "1.0.1"
 
 #define CSSRPG_DB "cssrpg.db"
 /* Columns: [int player_id] [string name] [string steamid] [int level] [int exp] [int credits] [int lastseen] [int items_id] */
