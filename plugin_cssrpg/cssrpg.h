@@ -26,8 +26,6 @@
 /* Columns: [int items_id] [regen] [hbonus] [...] */
 #define TBL_ITEMS "items"
 
-#define AUTOSAVE_DURATION 150
-
 #define ITEM_REGEN		0
 #define ITEM_HBONUS		1
 #define ITEM_RESUP		2
@@ -59,6 +57,7 @@ public:
 	static bool bot_enable;
 	static bool debug_mode;
 	static bool save_data;
+	static unsigned int save_interval;
 	static unsigned int player_expire;
 
 	static unsigned int exp_max;

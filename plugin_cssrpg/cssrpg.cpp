@@ -245,14 +245,19 @@ void CRPG_Player::ShutDown(void) {
 
 void CRPG_Player::AutoSave(char force) { /* Each player is saved each frame */
 	static int saveplayer = player_count;
-	static float nextrun = gpGlobals->curtime+AUTOSAVE_DURATION;
+	static float nextrun = gpGlobals->curtime+save_interval;
 
 	if(!force && (gpGlobals->curtime < nextrun))
 		return ;
 
-	if((saveplayer < 0) || !enable || !save_data) {
+	if(!enable || !save_data || (!save_interval && !force)) {
 		saveplayer = player_count;
-		nextrun = gpGlobals->curtime+AUTOSAVE_DURATION;
+		nextrun = gpGlobals->curtime+60; /* Check again in 1 minute */
+		return ;
+	}
+	else if(saveplayer < 0) {
+		saveplayer = player_count;
+		nextrun = gpGlobals->curtime+save_interval;
 		return ;
 	}
 

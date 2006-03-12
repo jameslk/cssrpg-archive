@@ -277,6 +277,7 @@ bool CRPG_GlobalSettings::enable;
 bool CRPG_GlobalSettings::bot_enable;
 bool CRPG_GlobalSettings::debug_mode;
 bool CRPG_GlobalSettings::save_data;
+unsigned int CRPG_GlobalSettings::save_interval;
 unsigned int CRPG_GlobalSettings::player_expire;
 
 unsigned int CRPG_GlobalSettings::exp_max;
@@ -296,6 +297,7 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("bot_enable", "1", "If set to 1, bots will be able to use the CSSRPG plugin", var_bool, &bot_enable);
 	CRPG_Setting::CreateVar("debug", "0", "Turns on debug mode for this plugin", var_bool, &debug_mode);
 	CRPG_Setting::CreateVar("save_data", "1", "If disabled, the database won't be updated (this means player data won't be saved!)", var_bool, &save_data);
+	CRPG_Setting::CreateVar("save_interval", "150", "Interval (in seconds) that player data is auto saved (0 = off)", var_uint, &save_interval);
 	CRPG_Setting::CreateVar("player_expire", "30", "Sets how many days until an unused player account is deleted (0 = never)", var_uint, &player_expire);
 
 	type = &CRPG::item_types[ITEM_REGEN];
