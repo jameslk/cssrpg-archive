@@ -223,23 +223,6 @@ CBaseCombatCharacter_GiveAmmo_Sig.Init("CBaseCombatCharacter::GiveAmmo",
 "xxxxxxxxxx??xxxx?????????xxxxxxxxx",
 34);
 
-	/* void CBaseEntity::SetRenderColor(byte r, byte g, byte b);
-	Last Address: 22053860
-	Signature: 83 C1 24 E9 18? F9? FF? FF? */
-CBaseEntity_SetRenderColor_Sig.Init("CBaseEntity::SetRenderColor",
-(unsigned char*)"\x83\xC1\x24\xE9\x18\xF9\xFF\xFF",
-"xxxx????",
-8);
-
-	/* void CBaseEntity::SetRenderMode(RenderMode_t nRenderMode);
-	Last Address: 220F2220
-	Signature: 8B 54 24 04 39 51 20 74? 26? 80 B9 F0 01 00 00 00 74? 0D? C6 81 00 02 00 00 01 89 51 20 C2 04 00 */
-CBaseEntity_SetRenderMode_Sig.Init("CBaseEntity::SetRenderMode",
-(unsigned char*)"\x8B\x54\x24\x04\x39\x51\x20\x74\x26\x80\xB9\xF0\x01\x00\x00\x00\x74\x0D\xC6\x81\
-\x00\x02\x00\x00\x01\x89\x51\x20\xC2\x04\x00",
-"xxxxxxx??xxxxxxx??xxxxxxxxxxxxx",
-31);
-
 	return ;
 }
 #endif /* if WIN32 */
@@ -261,23 +244,29 @@ void* find_sym_addr(void *dl_handle, char *name, char *symbol) {
 
 	addr = dlsym(dl_handle, symbol);
 	if(addr == NULL) {
-		CRPG::ConsoleMsg("dlsym() for function \"%s\" with error: %s",
+		CRPG::ConsoleMsg("dlsym() failed for function \"%s\" with error: \"%s\", CSS:RPG will not function properly.",
 			MTYPE_ERROR, name, dlerror());
 		return NULL;
 	}
 
-	CRPG::DebugMsg("Found symbol function: %s", name);
+	CRPG::DebugMsg("Found symbol function: %s, address: %X", name, addr);
 	return addr;
 }
 
 void init_lsym_funcs(void) {
 	char binpath[1024];
 	void *handle;
+	int error = 0;
 
 	CRPG::s_engine()->GetGameDir(binpath, 512);
 	sprintf(binpath, "%s/bin/server_i486.so", binpath);
 
 	handle = dlopen(binpath, RTLD_NOW);
+	if(handle == NULL) {
+		CRPG::ConsoleMsg("dlopen() failed with error: \"%s\", CSS:RPG will not function properly.",
+			MTYPE_ERROR, dlerror());
+		return ;
+	}
 
 	CBaseAnimating_Ignite_Addr = find_sym_addr(handle,
 		"CBaseAnimating::Ignite", "_ZN14CBaseAnimating6IgniteEfbfb");
@@ -289,9 +278,10 @@ void init_lsym_funcs(void) {
 		"CBaseCombatCharacter::Weapon_GetSlot", "_ZNK20CBaseCombatCharacter14Weapon_GetSlotEi");
 
 	CBaseCombatCharacter_GiveAmmo_Addr = find_sym_addr(handle,
-		"CBaseCombatCharacter::GiveAmmo", "_ZN20CBaseCombatCharacter8GiveAmmoEiPKcb");
+		"CBaseCombatCharacter::GiveAmmo", "_ZN20CBaseCombatCharacter8GiveAmmoEiib");
 
 	dlclose(handle);
+	return ;
 }
 #endif /* endif !WIN32 */
 
@@ -388,30 +378,4 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 	#endif
 
 	return ret;
-}
-
-void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a) {
-	#ifdef WIN32
-	if(!CBaseEntity_SetRenderColor_Sig.is_set)
-		return ;
-
-	typedef void (__fastcall *func)(CBaseEntity*, void*, byte, byte, byte, byte);
-	func thisfunc = (func)CBaseEntity_SetRenderColor_Sig.sig_addr;
-	thisfunc(cbe, 0, r, b, g, a);
-	#endif
-
-	return ;
-}
-
-void CBaseEntity_SetRenderMode(CBaseEntity *cbe, RenderMode_t nRenderMode) {
-	#ifdef WIN32
-	if(!CBaseEntity_SetRenderMode_Sig.is_set)
-		return ;
-
-	typedef void (__fastcall *func)(CBaseEntity*, void*, RenderMode_t);
-	func thisfunc = (func)CBaseEntity_SetRenderMode_Sig.sig_addr;
-	thisfunc(cbe, 0, nRenderMode);
-	#endif
-
-	return ;
 }
