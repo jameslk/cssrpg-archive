@@ -142,7 +142,8 @@ public:
 	static void Init(void);
 	static void ShutDown(void);
 
-	static void AutoSave(char force);
+	static void AutoSave(void);
+	static void SaveAll(void);
 
 	static CRPG_Player* AddPlayer(edict_t *e);
 	unsigned int DelPlayer(void);

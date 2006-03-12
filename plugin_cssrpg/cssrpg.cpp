@@ -237,20 +237,21 @@ void CRPG_Player::Init(void) {
 }
 
 void CRPG_Player::ShutDown(void) {
-	AutoSave(1);
+	SaveAll();
 	free_nodes(player_count);
 
 	return ;
 }
 
-void CRPG_Player::AutoSave(char force) { /* Each player is saved each frame */
+/* Each player is saved each frame */
+void CRPG_Player::AutoSave(void) {
 	static int saveplayer = player_count;
 	static float nextrun = gpGlobals->curtime+save_interval;
 
-	if(!force && (gpGlobals->curtime < nextrun))
+	if(gpGlobals->curtime < nextrun)
 		return ;
 
-	if(!enable || !save_data || (!save_interval && !force)) {
+	if(!enable || !save_data || !save_interval) {
 		saveplayer = player_count;
 		nextrun = gpGlobals->curtime+60; /* Check again in 1 minute */
 		return ;
@@ -267,6 +268,21 @@ void CRPG_Player::AutoSave(char force) { /* Each player is saved each frame */
 		players[saveplayer]->SaveData();
 
 	saveplayer--;
+	return ;
+}
+
+/* All players are saved on the same frame */
+void CRPG_Player::SaveAll(void) {
+	unsigned int i = player_count;
+
+	if(!enable || !save_data)
+		return ;
+
+	while(i--) {
+		if(players[i] != NULL)
+			players[i]->SaveData();
+	}
+
 	return ;
 }
 
