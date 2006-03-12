@@ -382,7 +382,7 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPG_Timer::RunEvents();
 	CRPGI_LJump::CheckAll();
-	CRPG_Player::AutoSave(0);
+	CRPG_Player::AutoSave();
 
 	return ;
 }
