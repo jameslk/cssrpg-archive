@@ -262,8 +262,6 @@ void CRPG_Player::AutoSave(void) {
 		return ;
 	}
 
-	CRPG::DebugMsg("Player: %d", saveplayer);
-
 	if(players[saveplayer] != NULL)
 		players[saveplayer]->SaveData();
 
