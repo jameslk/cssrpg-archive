@@ -34,6 +34,7 @@
 #define GAME_DLL 1
 
 #include "../cssrpg.h"
+#include "../cssrpg_hacks.h"
 #include "rpgi.h"
 #include "rpgi_stealth.h"
 
@@ -52,7 +53,7 @@ void CRPGI_Stealth::BuyItem(void *ptr) {
 	CRPG_Player *player = (CRPG_Player*)ptr;
 
 	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+	player->cbp()->SetRenderColor(255, 255, 255, 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 
 	return ;
 }
@@ -61,23 +62,28 @@ void CRPGI_Stealth::SellItem(void *ptr) {
 	CRPG_Player *player = (CRPG_Player*)ptr;
 
 	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+	player->cbp()->SetRenderColor(255, 255, 255, 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 
 	return ;
 }
 
-void CRPGI_Stealth::SetVisibility(CRPG_Player *player) {
-	if(player == NULL)
-		return ;
+/* This must be called in bulk for each player */
+void CRPGI_Stealth::SetVisibilities(void) {
+	int i = CRPG_Player::player_count;
+	CRPG_Player *player;
 
 	IF_ITEM_NENABLED(ITEM_STEALTH)
 		return ;
 
-	IF_BOT_NENABLED(player)
-		return ;
-
-	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+	while(i--) {
+		player = CRPG_Player::players[i];
+		if(player != NULL) {
+			IF_BOT_ENABLED(player) {
+				player->cbp()->SetRenderMode(kRenderTransAlpha);
+				player->cbp()->SetRenderColor(255, 255, 255, 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+			}
+		}
+	}
 
 	return ;
 }

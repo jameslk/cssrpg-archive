@@ -18,7 +18,7 @@
 #ifndef RPGI_STEALTH_H
 #define RPGI_STEALTH_H
 
-#define STEALTH_INC 25
+#define STEALTH_INC 30
 
 #include "../cssrpg_misc.h"
 class CRPGI_Stealth {
@@ -28,7 +28,7 @@ public:
 	static void BuyItem(void *ptr);
 	static void SellItem(void *ptr);
 
-	static void SetVisibility(CRPG_Player *player);
+	static void SetVisibilities(void);
 };
 
 #endif
