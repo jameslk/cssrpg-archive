@@ -415,6 +415,8 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	if(CRPG::IsValidIndex(index)) {
 		CRPG::ChatAreaMsg(index, "\x01This server is running CSS:RPG v%s (\x04http://cssrpg.sf.net\x01).", CSSRPG_VERSION);
 		CRPG::ChatAreaMsg(index, "Type \"rpgmenu\" to bring up your options.");
+
+		CRPGI_Stealth::SetVisibilities();
 	}
 
 	return ;
@@ -575,7 +577,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		player->css.isdead = 0;
 
 		CRPGI_HBonus::SetSpawnHealth(player);
-		CRPGI_Stealth::SetVisibility(player);
+		CRPGI_Stealth::SetVisibilities();
 	}
 	else if(FStrEq(name, "player_death")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
