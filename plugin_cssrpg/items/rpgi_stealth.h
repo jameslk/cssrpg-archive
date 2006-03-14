@@ -22,6 +22,8 @@
 
 #include "../cssrpg_misc.h"
 class CRPGI_Stealth {
+	static CRPG_Timer *updatevis_timer;
+
 public:
 	static void Init(void);
 	static void ShutDown(void);
@@ -29,6 +31,7 @@ public:
 	static void SellItem(void *ptr);
 
 	static void SetVisibilities(void);
+	static TIMER_FUNC(UpdateVisibilities);
 };
 
 #endif

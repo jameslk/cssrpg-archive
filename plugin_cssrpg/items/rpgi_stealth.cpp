@@ -41,11 +41,23 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+CRPG_Timer* CRPGI_Stealth::updatevis_timer;
+
 void CRPGI_Stealth::Init(void) {
+	IF_ITEM_ENABLED(ITEM_REGEN)
+		updatevis_timer = CRPG_Timer::AddTimer(20, 0, CRPGI_Stealth::UpdateVisibilities, 0);
+	else
+		updatevis_timer = NULL;
+
 	return ;
 }
 
 void CRPGI_Stealth::ShutDown(void) {
+	if(updatevis_timer != NULL) {
+		updatevis_timer->DelTimer();
+		updatevis_timer = NULL;
+	}
+
 	return ;
 }
 
@@ -85,5 +97,11 @@ void CRPGI_Stealth::SetVisibilities(void) {
 		}
 	}
 
+	return ;
+}
+
+/* Visibility is updated every 20 seconds */
+TIMER_FUNC(CRPGI_Stealth::UpdateVisibilities) {
+	SetVisibilities();
 	return ;
 }
