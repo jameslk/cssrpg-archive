@@ -234,7 +234,6 @@ void CRPG_Player::Init(void) {
 
 	nodes = players;
 
-	//CRPG_Timer::AddTimer(1, 0, LOLSave, 0);
 	return ;
 }
 
