@@ -18,7 +18,7 @@
 #ifndef RPGI_STEALTH_H
 #define RPGI_STEALTH_H
 
-#define STEALTH_INC 30
+#define STEALTH_INC 40
 
 #include "../cssrpg_misc.h"
 class CRPGI_Stealth {
