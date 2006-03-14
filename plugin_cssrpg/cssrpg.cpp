@@ -220,7 +220,7 @@ void CRPG::DatabaseMaid(void) {
 	////////////////////////////////////// */
 template class CRPG_PlayerClass<CRPG_Player>;
 template<> CRPG_Player** CRPG_PlayerClass<CRPG_Player>::nodes;
-CRPG_Player** CRPG_Player::players;
+CRPG_Player** CRPG_Player::players = NULL;
 unsigned int CRPG_Player::player_count;
 
 void CRPG_Player::Init(void) {
@@ -233,39 +233,42 @@ void CRPG_Player::Init(void) {
 		players[i] = NULL;
 
 	nodes = players;
+
+	//CRPG_Timer::AddTimer(1, 0, LOLSave, 0);
 	return ;
 }
 
 void CRPG_Player::ShutDown(void) {
 	SaveAll();
 	free_nodes(player_count);
+	players = NULL;
 
 	return ;
 }
 
 /* Each player is saved each frame */
 void CRPG_Player::AutoSave(void) {
-	static int saveplayer = player_count;
-	static float nextrun = gpGlobals->curtime+save_interval;
+	static int index = player_count-1; /* the player array starts at 0 */
+	static float nextrun = gpGlobals->curtime+(float)save_interval;
 
 	if(gpGlobals->curtime < nextrun)
 		return ;
 
-	if(!enable || !save_data || !save_interval) {
-		saveplayer = player_count;
+	if(!enable || !save_data || !save_interval || (players == NULL)) {
+		index = player_count-1;
 		nextrun = gpGlobals->curtime+60; /* Check again in 1 minute */
 		return ;
 	}
-	else if(saveplayer < 0) {
-		saveplayer = player_count;
+	else if(index < 0) {
+		index = player_count-1;
 		nextrun = gpGlobals->curtime+save_interval;
 		return ;
 	}
 
-	if(players[saveplayer] != NULL)
-		players[saveplayer]->SaveData();
+	if(players[index] != NULL)
+		players[index]->SaveData();
 
-	saveplayer--;
+	index--;
 	return ;
 }
 
@@ -273,7 +276,7 @@ void CRPG_Player::AutoSave(void) {
 void CRPG_Player::SaveAll(void) {
 	unsigned int i = player_count;
 
-	if(!enable || !save_data)
+	if(!enable || !save_data || (players == NULL))
 		return ;
 
 	while(i--) {
@@ -487,6 +490,9 @@ void CRPG_Player::SaveData(void) {
 unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 	unsigned int cost;
 
+	if(this->items[item_index].level >= CRPG::item_types[item_index].maxlevel)
+		return 0;
+
 	cost = CRPGI::GetItemCost(item_index, this->items[item_index].level+1);
 
 	if(cost > this->credits)
@@ -505,6 +511,9 @@ unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 }
 
 unsigned int CRPG_Player::SellItem(unsigned int item_index) {
+	if(this->items[item_index].level <= 0)
+		return 0;
+
 	this->credits += CRPGI::GetItemSale(item_index, this->items[item_index].level);
 	this->items[item_index].level--;
 	CRPG::item_types[item_index].sell_item(this); /* do any item-specific deactivation */
