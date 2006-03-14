@@ -134,6 +134,7 @@ public:
 		userid = 0;
 
 		dbinfo.player_id = -1;
+		dbinfo.items_id = -1;
 
 		css.team = team_none;
 		css.isdead = 1;
