@@ -46,6 +46,7 @@
 #include "items/rpgi_stealth.h"
 #include "items/rpgi_ljump.h"
 #include "items/rpgi_fnade.h"
+#include "items/rpgi_icestab.h"
 
 #include "cssrpg.h"
 
@@ -120,6 +121,13 @@ void CRPG::init_item_types(void) {
 	item_types[ITEM_FNADE].maxlevel = 5;
 	item_types[ITEM_FNADE].buy_item = CRPGI_FNade::BuyItem;
 	item_types[ITEM_FNADE].sell_item = CRPGI_FNade::SellItem;
+
+	/* IceStab */
+	strcpy(item_types[ITEM_ICESTAB].name, "IceStab");
+	strcpy(item_types[ITEM_ICESTAB].shortname, "icestab");
+	item_types[ITEM_ICESTAB].maxlevel = 3;
+	item_types[ITEM_ICESTAB].buy_item = CRPGI_IceStab::BuyItem;
+	item_types[ITEM_ICESTAB].sell_item = CRPGI_IceStab::SellItem;
 
 	return ;
 }
@@ -396,8 +404,14 @@ void CRPG_Player::LoadData(void) {
 		return ;
 
 	/* Player Info */
+	if(steamid_save && CRPG::steamid_check((char*)this->steamid())) {
+		retval = CRPG::db->Query(&result, "SELECT * FROM %s WHERE steamid = '%q'",
+			TBL_PLAYERS, this->name(), this->steamid());
+	}
+	else {
 	retval = CRPG::db->Query(&result, "SELECT * FROM %s WHERE name = '%q' AND steamid = '%q'",
 		TBL_PLAYERS, this->name(), this->steamid());
+	}
 
 	if(!retval) {
 		CRPG::ConsoleMsg("Unable to load player data for %s", MTYPE_ERROR, this->name());
@@ -486,8 +500,58 @@ void CRPG_Player::SaveData(void) {
 	return ;
 }
 
+void CRPG_Player::ResetStats(void) {
+	unsigned int i = ITEM_COUNT;
+
+	CRPG::DebugMsg("Stats have been reset for player: %s", this->name());
+
+	while(i--) {
+		items[i].level = 0;
+		CRPG::item_types[i].sell_item(this);
+	}
+
+	this->level = 0;
+	this->exp = 0;
+	this->credits = 0;
+
+	CRPGI::PlayerUpdate(this);
+
+	return ;
+}
+
+unsigned int CRPG_Player::GiveItem(unsigned int item_index) {
+	if(item_index > ITEM_COUNT)
+		return 0;
+
+	if(this->items[item_index].level >= CRPG::item_types[item_index].maxlevel)
+		return 0;
+
+	this->items[item_index].level++;
+	CRPG::item_types[item_index].buy_item(this); /* do any item-specific activation */
+	CRPGI::PlayerUpdate(this);
+
+	return 1;
+}
+
+unsigned int CRPG_Player::TakeItem(unsigned int item_index) {
+	if(item_index > ITEM_COUNT)
+		return 0;
+
+	if(this->items[item_index].level <= 0)
+		return 0;
+
+	this->items[item_index].level--;
+	CRPG::item_types[item_index].sell_item(this); /* do any item-specific deactivation */
+	CRPGI::PlayerUpdate(this);
+
+	return 1;
+}
+
 unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 	unsigned int cost;
+
+	if(item_index > ITEM_COUNT)
+		return 0;
 
 	if(this->items[item_index].level >= CRPG::item_types[item_index].maxlevel)
 		return 0;
@@ -497,30 +561,31 @@ unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 	if(cost > this->credits)
 		return 0;
 
-	this->credits -= cost;
-	this->items[item_index].level++;
-	CRPG::item_types[item_index].buy_item(this); /* do any item-specific activation */
-
 	CRPG::DebugMsg("%s bought item %s Lvl %d",
 		this->name(), CRPG::item_types[item_index].name, this->items[item_index].level);
 
-	CRPGI::PlayerUpdate(this);
+	if(!this->GiveItem(item_index))
+		return 0;
+
+	this->credits -= cost;
 
 	return 1;
 }
 
 unsigned int CRPG_Player::SellItem(unsigned int item_index) {
-	if(this->items[item_index].level <= 0)
+	if(item_index > ITEM_COUNT)
 		return 0;
 
-	this->credits += CRPGI::GetItemSale(item_index, this->items[item_index].level);
-	this->items[item_index].level--;
-	CRPG::item_types[item_index].sell_item(this); /* do any item-specific deactivation */
+	if(this->items[item_index].level <= 0)
+		return 0;
 
 	CRPG::DebugMsg("%s sold item %s Lvl %d",
 		this->name(), CRPG::item_types[item_index].name, this->items[item_index].level+1);
 
-	CRPGI::PlayerUpdate(this);
+	if(!this->TakeItem(item_index))
+		return 0;
+
+	this->credits += CRPGI::GetItemSale(item_index, this->items[item_index].level);
 
 	return 1;
 }

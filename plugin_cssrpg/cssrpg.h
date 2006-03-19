@@ -18,7 +18,7 @@
 #ifndef CSSRPG_H
 #define CSSRPG_H
 
-#define CSSRPG_VERSION "1.0.1"
+#define CSSRPG_VERSION "1.0.2"
 
 #define CSSRPG_DB "cssrpg.db"
 /* Columns: [int player_id] [string name] [string steamid] [int level] [int exp] [int credits] [int lastseen] [int items_id] */
@@ -33,8 +33,9 @@
 #define ITEM_STEALTH	4
 #define ITEM_LJUMP		5
 #define ITEM_FNADE		6
+#define ITEM_ICESTAB	7
 
-#define ITEM_COUNT		7
+#define ITEM_COUNT		8
 
 struct item_type {
 	char name[16];
@@ -57,15 +58,28 @@ public:
 	static bool bot_enable;
 	static bool debug_mode;
 	static bool save_data;
+	static bool steamid_save;
 	static unsigned int save_interval;
 	static unsigned int player_expire;
+	static bool announce_newlvl;
 
+	static bool exp_notice;
 	static unsigned int exp_max;
 	static unsigned int exp_start;
 	static unsigned int exp_inc;
+
 	static float exp_damage;
+	static float exp_knifedmg;
 	static float exp_kill;
 	static float exp_headshot;
+
+	static float exp_teamwin;
+	static float exp_bombplanted;
+	static float exp_bombdefused;
+	static float exp_bombexploded;
+	static float exp_hostage;
+	static float exp_vipescaped;
+
 	static unsigned int credits_inc;
 	static unsigned int credits_start;
 	static float sale_percent;
@@ -160,6 +174,10 @@ public:
 		CRPG_StatsManager::add_exp(this, exp);
 	}
 
+	void ResetStats(void);
+
+	unsigned int GiveItem(unsigned int item_index);
+	unsigned int TakeItem(unsigned int item_index);
 	unsigned int BuyItem(unsigned int item_index);
 	unsigned int SellItem(unsigned int item_index);
 };
