@@ -35,6 +35,7 @@
 #include "rpgi_resup.h"
 #include "rpgi_ljump.h"
 #include "rpgi_stealth.h"
+#include "rpgi_icestab.h"
 #include "rpgi.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -55,6 +56,7 @@ void CRPGI::ShutDown(void) {
 	CRPGI_Resup::ShutDown();
 	CRPGI_LJump::ShutDown();
 	CRPGI_Stealth::ShutDown();
+	CRPGI_IceStab::ShutDown();
 
 	return ;
 }
