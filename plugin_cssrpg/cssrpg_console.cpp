@@ -82,6 +82,35 @@ CON_COMMAND(cssrpg_debug_timers, "List all timers") {
 	return ;
 }
 
+CON_COMMAND(cssrpg_debug_giveitem, "Gives a player a new Item Level") {
+	CRPG_Player *player;
+	int player_index, item_index;
+
+	if(CRPG::s_engine()->Cmd_Argc() < 3) {
+		CRPG::DebugMsg("cssrpg_debug_giveitem: Requires 2 arguments");
+		return ;
+	}
+
+	player_index = CRPG::FindPlayer(CRPG::s_engine()->Cmd_Argv(1));
+	if(player_index < 0) {
+		CRPG::DebugMsg("cssrpg_debug_giveitem: Couldn't find player: %s", CRPG::s_engine()->Cmd_Argv(1));
+		return ;
+	}
+
+	player = IndextoRPGPlayer(player_index);
+
+	item_index = atoi(CRPG::s_engine()->Cmd_Argv(2));
+	if(!player->GiveItem(item_index)) {
+		CRPG::DebugMsg("cssrpg_debug_giveitem: Failed to give player %s Item: %d", player->name(), item_index);
+		return ;
+	}
+
+	CRPG::DebugMsg("cssrpg_debug_giveitem: Gave player %s Item %s Level %d",
+		player->name(), CRPG::item_types[item_index].name, player->items[item_index].level);
+
+	return ;
+}
+
 /*	//////////////////////////////////////
 	Static Server Variables
 	////////////////////////////////////// */
@@ -277,15 +306,28 @@ bool CRPG_GlobalSettings::enable;
 bool CRPG_GlobalSettings::bot_enable;
 bool CRPG_GlobalSettings::debug_mode;
 bool CRPG_GlobalSettings::save_data;
+bool CRPG_GlobalSettings::steamid_save;
 unsigned int CRPG_GlobalSettings::save_interval;
 unsigned int CRPG_GlobalSettings::player_expire;
+bool CRPG_GlobalSettings::announce_newlvl;
 
+bool CRPG_GlobalSettings::exp_notice;
 unsigned int CRPG_GlobalSettings::exp_max;
 unsigned int CRPG_GlobalSettings::exp_start;
 unsigned int CRPG_GlobalSettings::exp_inc;
+
 float CRPG_GlobalSettings::exp_damage;
+float CRPG_GlobalSettings::exp_knifedmg;
 float CRPG_GlobalSettings::exp_kill;
 float CRPG_GlobalSettings::exp_headshot;
+
+float CRPG_GlobalSettings::exp_teamwin;
+float CRPG_GlobalSettings::exp_bombplanted;
+float CRPG_GlobalSettings::exp_bombdefused;
+float CRPG_GlobalSettings::exp_bombexploded;
+float CRPG_GlobalSettings::exp_hostage;
+float CRPG_GlobalSettings::exp_vipescaped;
+
 unsigned int CRPG_GlobalSettings::credits_inc;
 unsigned int CRPG_GlobalSettings::credits_start;
 float CRPG_GlobalSettings::sale_percent;
@@ -297,8 +339,10 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("bot_enable", "1", "If set to 1, bots will be able to use the CSSRPG plugin", var_bool, &bot_enable);
 	CRPG_Setting::CreateVar("debug", "0", "Turns on debug mode for this plugin", var_bool, &debug_mode);
 	CRPG_Setting::CreateVar("save_data", "1", "If disabled, the database won't be updated (this means player data won't be saved!)", var_bool, &save_data);
+	CRPG_Setting::CreateVar("steamid_save", "0", "Save by SteamID instead of by SteamID and name", var_bool, &steamid_save);
 	CRPG_Setting::CreateVar("save_interval", "150", "Interval (in seconds) that player data is auto saved (0 = off)", var_uint, &save_interval);
 	CRPG_Setting::CreateVar("player_expire", "30", "Sets how many days until an unused player account is deleted (0 = never)", var_uint, &player_expire);
+	CRPG_Setting::CreateVar("announce_newlvl", "1", "Global announcement when a player reaches a new level (1 = enable, 0 = disable)", var_bool, &announce_newlvl);
 
 	type = &CRPG::item_types[ITEM_REGEN];
 	CRPG_Setting::CreateVar("regen_enable", "1", "Sets the Regeneration item to enabled (1) or disabled (0)", var_bool, &type->enable);
@@ -323,7 +367,7 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	type = &CRPG::item_types[ITEM_STEALTH];
 	CRPG_Setting::CreateVar("stealth_enable", "1", "Sets the Stealth item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("stealth_cost", "15", "Stealth item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("stealth_icost", "15", "Stealth item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("stealth_icost", "10", "Stealth item cost increment for each level", var_uint, &type->inc_cost);
 
 	type = &CRPG::item_types[ITEM_LJUMP];
 	CRPG_Setting::CreateVar("ljump_enable", "1", "Sets the LongJump item to enabled (1) or disabled (0)", var_bool, &type->enable);
@@ -335,12 +379,28 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("fnade_cost", "15", "FireGrenade item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("fnade_icost", "10", "FireGrenade item cost increment for each level", var_uint, &type->inc_cost);
 
+	type = &CRPG::item_types[ITEM_ICESTAB];
+	CRPG_Setting::CreateVar("icestab_enable", "1", "Sets the IceStab item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("icestab_cost", "20", "IceStab item start cost", var_uint, &type->start_cost);
+	CRPG_Setting::CreateVar("icestab_icost", "10", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
+
+	CRPG_Setting::CreateVar("exp_notice", "0", "Sets notifications to players when they gain Experience (unrecommended)", var_bool, &exp_notice);
 	CRPG_Setting::CreateVar("exp_max", "50000", "Maximum experience that will ever be required", var_uint, &exp_max);
 	CRPG_Setting::CreateVar("exp_start", "250", "Experience required for Level 1", var_uint, &exp_start);
 	CRPG_Setting::CreateVar("exp_inc", "50", "Incriment experience requied for each level (until cssrpg_exp_max)", var_uint, &exp_inc);
+
 	CRPG_Setting::CreateVar("exp_damage", "1.0", "Experience for hurting an enemy multiplied by the damage done", var_ufloat, &exp_damage);
+	CRPG_Setting::CreateVar("exp_knifedmg", "3.0", "Experience for knifing an enemy multiplied by the damage done (must be higher than exp_damage)", var_ufloat, &exp_knifedmg);
 	CRPG_Setting::CreateVar("exp_kill", "15", "Experience for a kill multiplied by the victim's level", var_ufloat, &exp_kill);
 	CRPG_Setting::CreateVar("exp_headshot", "50", "Experience extra for a headshot", var_ufloat, &exp_headshot);
+
+	CRPG_Setting::CreateVar("exp_teamwin", "100", "Experience multipled by the team ratio given to a team for completing the objective", var_ufloat, &exp_teamwin);
+	CRPG_Setting::CreateVar("exp_bombplanted", "100", "Experience multipled by the team ratio given for planting the bomb", var_ufloat, &exp_bombplanted);
+	CRPG_Setting::CreateVar("exp_bombdefused", "200", "Experience multipled by the team ratio given for defusing the bomb", var_ufloat, &exp_bombdefused);
+	CRPG_Setting::CreateVar("exp_bombexploded", "120", "Experience multipled by the team ratio given to the bomb planter when it explodes", var_ufloat, &exp_bombexploded);
+	CRPG_Setting::CreateVar("exp_hostage", "50", "Experience multipled by the team ratio given for rescuing a hostage", var_ufloat, &exp_hostage);
+	CRPG_Setting::CreateVar("exp_vipescaped", "200", "Experience multipled by the team ratio given to the vip when the vip escapes", var_ufloat, &exp_vipescaped);
+
 	CRPG_Setting::CreateVar("credits_inc", "5", "Credits given to each new level", var_uint, &credits_inc);
 	CRPG_Setting::CreateVar("credits_start", "0", "Starting credits for Level 1", var_uint, &credits_start);
 	CRPG_Setting::CreateVar("sale_percent", "0.75", "Percentage of credits a player gets for selling an item", var_ufloat, &sale_percent);
