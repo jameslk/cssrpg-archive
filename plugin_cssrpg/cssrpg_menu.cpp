@@ -44,6 +44,7 @@ extern IVEngineServer *engine;
 /*	//////////////////////////////////////
 	CRPG_Menu Class 
 	////////////////////////////////////// */
+#define MSG_STATS_RESET "Your stats have been successfully reset."
 #define MSG_MAX_LVL "You have reached the maximum level for this item."
 #define MSG_CREDITS "You do not have enough credits to buy %s Lvl %d. (Requires %d Credits)"
 #define MSG_ITEM_BOUGHT "%s Lvl %ld successfully purchased."
@@ -256,6 +257,54 @@ void CRPG_Menu::SellSelect(unsigned int option) {
 	return ;
 }
 
+void CRPG_Menu::GetSettingsPage(void) {
+	this->options = 0;
+
+	if(this->data != NULL) {
+		BuildOutput(0, "WARNING: You will lose all Levels, Credits, and Experience.\n");
+		BuildOutput(0, "Reset stats permanently?\n->1. Yes\n->2. No");
+		this->SetOptions(1, 2);
+		return ;
+	}
+
+	BuildOutput(0, "->1. Reset Stats");
+	this->SetOptions(1);
+
+	return ;
+}
+
+void CRPG_Menu::SettingsSelect(unsigned int option) {
+	CRPG_Player *player;
+
+	if(option > ITEM_COUNT) {
+		this->DelMenu();
+		return ;
+	}
+
+	if(this->data == NULL) {
+		if(option == 1) {
+			this->data = (void*)option;
+			this->CreateMenu();
+		}
+	}
+	else {
+		if(option != 1) {
+			this->DelMenu();
+			return ;
+		}
+
+		player = IndextoRPGPlayer(this->index);
+		if(player == NULL)
+			return ;
+
+		player->ResetStats();
+		CRPG::ChatAreaMsg(player->index, MSG_STATS_RESET);
+		this->DelMenu();
+	}
+
+	return ;
+}
+
 #define HELP_LINK_COUNT 4
 struct {
 	char *name;
@@ -296,7 +345,7 @@ void CRPG_Menu::GetMenu(void) {
 	switch(this->submenu) {
 		case none:
 			SetOptions(1, 2, 3, 4, 5);
-			BuildOutput(0, "->1. Upgrades\n->2. Sell\n->3. Stats\n->4. Help");
+			BuildOutput(0, "->1. Upgrades\n->2. Sell\n->3. Stats\n->4. Settings\n->5. Help");
 			break;
 
 		case upgrades:
@@ -309,6 +358,10 @@ void CRPG_Menu::GetMenu(void) {
 
 		case stats:
 			GetStatsPage();
+			break;
+
+		case settings:
+			GetSettingsPage();
 			break;
 		
 		case help:
@@ -449,6 +502,10 @@ void CRPG_Menu::SelectOption(unsigned int option) {
 
 		case stats:
 			this->DelMenu();
+			break;
+
+		case settings:
+			SettingsSelect(option);
 			break;
 
 		case help:
