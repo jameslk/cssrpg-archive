@@ -16,6 +16,8 @@
 */
 
 #include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
 #include "interface.h"
 #include "filesystem.h"
@@ -198,7 +200,12 @@ int CRPG_Utils::FindPlayer(char *str) {
 				continue;
 
 			info = playerinfomanager->GetPlayerInfo(player);
-			if(strstr(info->GetName(), str) != NULL)
+			if(info == NULL)
+				continue;
+
+			if(CRPG_Utils::istrcmp(str, (char*)info->GetNetworkIDString()))
+				return engine->IndexOfEdict(player);
+			else if(CRPG_Utils::istrstr((char*)info->GetName(), str) != NULL)
 				return engine->IndexOfEdict(player);
 		}
 	}
@@ -210,6 +217,9 @@ int CRPG_Utils::FindPlayer(char *str) {
 				continue;
 	 
 			info = playerinfomanager->GetPlayerInfo(player);
+			if(info == NULL)
+				continue;
+
 			if(info->GetUserID() == userid)
 				return engine->IndexOfEdict(player);
 		}
@@ -348,6 +358,45 @@ void CRPG_Utils::DebugMsg(char *msgf, ...) {
 	return ;
 }
 
+unsigned int CRPG_Utils::steamid_check(char *steamid) {
+	unsigned int repeats;
+    
+    if(steamid == NULL)
+        return 0;
+    
+    if(strlen(steamid) < 10)
+        return 0;
+    
+    if(memcmp(steamid, "STEAM_", 6))
+        return 0;
+    
+    steamid += 6;
+    
+    for(repeats = 0;repeats < 3;repeats++) {
+        while(1) {
+            if(!*steamid) {
+                if(repeats != 2)
+                    return 0;
+                else
+                    break;
+            }
+            else if(isdigit(*steamid)) {
+                steamid++;
+                continue;
+            }
+            else if(*steamid == ':') {
+                steamid++;
+                break;
+            }
+            else {
+                return 0;
+            }
+        }
+    }
+    
+    return 1;
+}
+
 unsigned char* CRPG_Utils::ustrncpy(unsigned char *dest, const unsigned char *src, int len) {
 	while(len--)
 		dest[len] = src[len];
@@ -367,6 +416,17 @@ unsigned int CRPG_Utils::istrcmp(char *str1, char *str2) {
 	}
 
 	return 1;
+}
+
+char* CRPG_Utils::istrstr(char *str, char *substr) {
+	while(*str) {
+		if(tolower(*str++) == tolower(*substr)) {
+			if(!*++substr)
+				return str;
+		}
+	}
+
+	return NULL;
 }
 
 void CRPG_Utils::Init() {

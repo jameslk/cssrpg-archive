@@ -94,8 +94,10 @@ public:
 	static void ConsoleMsg(char *msgf, char *msg_type, ...);
 	static void DebugMsg(char *msg, ...);
 
+	static unsigned int steamid_check(char *steamid);
 	static unsigned char* ustrncpy(unsigned char *dest, const unsigned char *src, int len);
 	static unsigned int istrcmp(char *str1, char *str2);
+	static char* istrstr(char *str, char *substr);
 
 	static void Init(void);
 };
