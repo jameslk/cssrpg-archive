@@ -74,13 +74,13 @@ class Vector;
 class QAngle;
 class CBaseCombatCharacter;
 class CBaseCombatWeapon;
+enum MoveType_t;
 
 /* Hacked Functions */
 void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPCOnly = false, float flSize = 0.0f, bool bCalledByLevelDesigner = false);
 void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity);
 CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbcc, int slot);
 int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound = 0);
-void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a);
-void CBaseEntity_SetRenderMode(CBaseEntity *cbe, RenderMode_t nRenderMode);
+void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide);
 
 #endif

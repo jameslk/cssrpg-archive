@@ -163,8 +163,7 @@ CRPG_SigScan CBaseAnimating_Ignite_Sig;
 CRPG_SigScan CBaseEntity_Teleport_Sig;
 CRPG_SigScan CBaseCombatCharacter_Weapon_GetSlot_Sig;
 CRPG_SigScan CBaseCombatCharacter_GiveAmmo_Sig;
-CRPG_SigScan CBaseEntity_SetRenderColor_Sig;
-CRPG_SigScan CBaseEntity_SetRenderMode_Sig;
+CRPG_SigScan CBaseEntity_SetMoveType_Sig;
 
 void init_sigs(void) {
 	CRPG_SigScan::GetDllMemInfo();
@@ -223,6 +222,15 @@ CBaseCombatCharacter_GiveAmmo_Sig.Init("CBaseCombatCharacter::GiveAmmo",
 "xxxxxxxxxx??xxxx?????????xxxxxxxxx",
 34);
 
+	/* void CBaseEntity::SetMoveType(MoveType_t val, MoveCollide_t moveCollide);
+	Last Address: 220D7D20
+	Signature: 56 8B F1 8B 4C 24 08 39 8E 04 02 00 00 75? 41? 8B 4C 24 0C 39 8E 08 02 00 00 */
+CBaseEntity_SetMoveType_Sig.Init("CBaseEntity::SetMoveType",
+(unsigned char*)"\x56\x8B\xF1\x8B\x4C\x24\x08\x39\x8E\x04\x02\x00\x00\x75\x41\x8B\x4C\x24\
+\x0C\x39\x8E\x08\x02\x00\x00",
+"xxxxxxxxxxxxx??xxxxxxxxxx",
+25);
+
 	return ;
 }
 #endif /* if WIN32 */
@@ -279,6 +287,9 @@ void init_lsym_funcs(void) {
 
 	CBaseCombatCharacter_GiveAmmo_Addr = find_sym_addr(handle,
 		"CBaseCombatCharacter::GiveAmmo", "_ZN20CBaseCombatCharacter8GiveAmmoEiib");
+
+	CBaseEntity_SetMoveType_Addr = find_sym_addr(handle,
+		"CBaseEntity::SetMoveType", "_ZN11CBaseEntity11SetMoveTypeE10MoveType_t13MoveCollide_t");
 
 	dlclose(handle);
 	return ;
@@ -378,4 +389,26 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 	#endif
 
 	return ret;
+}
+
+void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide) {
+	#ifdef WIN32
+	if(!CBaseEntity_SetMoveType_Sig.is_set)
+		return ;
+
+	typedef void (__fastcall *func)(CBaseEntity*, void*, MoveType_t val, MoveCollide_t moveCollide);
+	func thisfunc = (func)CBaseEntity_SetMoveType_Sig.sig_addr;
+	thisfunc(cbe, 0, val, moveCollide);
+
+	#else
+
+	if(CBaseEntity_SetMoveType_Addr == NULL)
+		return ;
+
+	typedef void (*func)(CBaseEntity*, MoveType_t val, MoveCollide_t moveCollide);
+	func thisfunc = (func)CBaseEntity_SetMoveType_Addr;
+	thisfunc(cbe, val, moveCollide);
+	#endif
+
+	return ;
 }
