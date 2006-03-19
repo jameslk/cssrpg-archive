@@ -105,6 +105,10 @@ void CRPGI_LJump::CheckAll(void) {
 				delete jump;
 			}
 		}
+		else {
+			jump->ll_del();
+			delete jump;
+		}
 	}
 
 	return ;
