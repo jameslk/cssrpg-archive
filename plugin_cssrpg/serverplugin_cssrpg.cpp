@@ -111,6 +111,7 @@
 #include "items/rpgi_stealth.h"
 #include "items/rpgi_ljump.h"
 #include "items/rpgi_fnade.h"
+#include "items/rpgi_icestab.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -341,6 +342,12 @@ void CPluginCSSRPG::LevelInit(char const *pMapName) {
 	gameeventmanager->AddListener(this, "player_spawn", true);
 	gameeventmanager->AddListener(this, "player_death", true);
 	gameeventmanager->AddListener(this, "player_say", true);
+	gameeventmanager->AddListener(this, "round_end", true);
+	gameeventmanager->AddListener(this, "bomb_planted", true);
+	gameeventmanager->AddListener(this, "bomb_defused", true);
+	gameeventmanager->AddListener(this, "bomb_exploded", true);
+	gameeventmanager->AddListener(this, "hostage_rescued", true);
+	gameeventmanager->AddListener(this, "vip_escaped", true);
 	gameeventmanager->AddListener(this, "player_team", true);
 
 	return ;
@@ -381,8 +388,9 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 //---------------------------------------------------------------------------------
 void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPG_Timer::RunEvents();
-	CRPGI_LJump::CheckAll();
 	CRPG_Player::AutoSave();
+	CRPGI_LJump::CheckAll();
+	CRPGI_IceStab::GameFrame();
 
 	return ;
 }
@@ -414,6 +422,9 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	CRPGI_HBonus::AddPlayer(pEntity);
 
 	if(CRPG::IsValidIndex(index)) {
+		if(!CRPG_GlobalSettings::enable)
+			return ;
+
 		CRPG::ChatAreaMsg(index, "\x01This server is running CSS:RPG v%s (\x04http://cssrpg.sf.net\x01).", CSSRPG_VERSION);
 		CRPG::ChatAreaMsg(index, "Type \"rpgmenu\" to bring up your options.");
 
@@ -487,9 +498,11 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 	submenu_t type;
 	int i;
 
-	if(!pEntity || pEntity->IsFree()) {
+	if(!CRPG_GlobalSettings::enable)
 		return PLUGIN_CONTINUE;
-	}
+
+	if(!pEntity || pEntity->IsFree())
+		return PLUGIN_CONTINUE;
 
 	pcmd = engine->Cmd_Argv(0);
 	if(FStrEq(pcmd, "menuselect")) {
@@ -563,9 +576,12 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		int dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
 		const char *weapon = event->GetString("weapon");
 
-		CRPG_StatsManager::PlayerDamage(attacker, dmg_health, dmg_armor);
+		CRPG_StatsManager::PlayerDamage(attacker, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, dmg_health, dmg_armor);
-		CRPGI_FNade::PlayerDamage(attacker, userid, weapon, dmg_health, dmg_armor);
+		if(CRPG::istrcmp((char*)weapon, "hegrenade"))
+			CRPGI_FNade::PlayerDamage(attacker, userid, dmg_health, dmg_armor);
+		else if(CRPG::istrcmp((char*)weapon, "knife"))
+			CRPGI_IceStab::PlayerDamage(attacker, userid, dmg_health, dmg_armor);
 	}
 	else if(FStrEq(name, "player_jump")) {
 		CRPGI_LJump::PlayerJump(event->GetInt("userid"));
@@ -589,6 +605,9 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		CRPG_StatsManager::PlayerKill(event->GetInt("attacker"), player->userid, event->GetBool("headshot"));
 	}
 	else if(FStrEq(name, "player_say")) {
+		if(!CRPG_GlobalSettings::enable)
+			return ;
+
 		const int userid = event->GetInt("userid");
 		const char *text = event->GetString("text");
 
@@ -613,6 +632,24 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			menu->submenu = help;
 			menu->CreateMenu();
 		}
+	}
+	else if(FStrEq(name, "round_end")) {
+		CRPG_StatsManager::WinningTeam(event->GetInt("team"), event->GetInt("reason"));
+	}
+	else if(FStrEq(name, "bomb_planted")) {
+		CRPG_StatsManager::BombPlanted(event->GetInt("userid"));
+	}
+	else if(FStrEq(name, "bomb_defused")) {
+		CRPG_StatsManager::BombDefused(event->GetInt("userid"));
+	}
+	else if(FStrEq(name, "bomb_exploded")) {
+		CRPG_StatsManager::BombExploded(event->GetInt("userid"));
+	}
+	else if(FStrEq(name, "hostage_rescued")) {
+		CRPG_StatsManager::HostageRescued(event->GetInt("userid"));
+	}
+	else if(FStrEq(name, "vip_escaped")) {
+		CRPG_StatsManager::VipEscaped(event->GetInt("userid"));
 	}
 	else if(FStrEq(name, "player_team")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
