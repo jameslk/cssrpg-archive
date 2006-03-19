@@ -53,7 +53,7 @@ public:
 	/* Public Variables */
 	ConVar *var;
 
-	char name[32];
+	char name[64];
 	char desc[512];
 	char defaultval[256];
 
