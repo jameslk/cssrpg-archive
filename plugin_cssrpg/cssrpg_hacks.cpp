@@ -243,6 +243,7 @@ void *CBaseAnimating_Ignite_Addr;
 void *CBaseEntity_Teleport_Addr;
 void *CBaseCombatCharacter_Weapon_GetSlot_Addr;
 void *CBaseCombatCharacter_GiveAmmo_Addr;
+void *CBaseEntity_SetMoveType_Addr;
 
 void* find_sym_addr(void *dl_handle, char *name, char *symbol) {
 	void *addr;
