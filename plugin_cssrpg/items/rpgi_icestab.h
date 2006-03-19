@@ -22,6 +22,7 @@
 #define ICESTAB_DMG_MIN 50 /* Secondary knife attack is 50+ damage */
 #define ICESTAB_CLRFADE 1 /* Blue color fade amount for each frame */
 
+#include "../cssrpg_misc.h"
 class CRPGI_IceStab: public CRPG_LinkedList<CRPGI_IceStab> {
 private:
 	/* Private Variables */
