@@ -65,7 +65,7 @@ void CRPGI_Stealth::BuyItem(void *ptr) {
 	CRPG_Player *player = (CRPG_Player*)ptr;
 
 	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColor(255, 255, 255, 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 
 	return ;
 }
@@ -74,7 +74,7 @@ void CRPGI_Stealth::SellItem(void *ptr) {
 	CRPG_Player *player = (CRPG_Player*)ptr;
 
 	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColor(255, 255, 255, 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 
 	return ;
 }
@@ -91,8 +91,8 @@ void CRPGI_Stealth::SetVisibilities(void) {
 		player = CRPG_Player::players[i];
 		if(player != NULL) {
 			IF_BOT_ENABLED(player) {
-				player->cbp()->SetRenderMode(kRenderTransAlpha);
-				player->cbp()->SetRenderColor(255, 255, 255, 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+				player->cbp()->SetRenderMode(kRenderTransColor);
+				player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 			}
 		}
 	}

@@ -30,7 +30,7 @@ public:
 	static void BuyItem(void *ptr);
 	static void SellItem(void *ptr);
 
-	static void PlayerDamage(int attacker, int victim, const char *weapon, int dmg_health, int dmg_armor);
+	static void PlayerDamage(int attacker, int victim, int dmg_health, int dmg_armor);
 };
 
 #endif

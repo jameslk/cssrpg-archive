@@ -57,12 +57,9 @@ void CRPGI_FNade::SellItem(void *ptr) {
 	return ;
 }
 
-void CRPGI_FNade::PlayerDamage(int attacker, int victim, const char *weapon, int dmg_health, int dmg_armor) {
+void CRPGI_FNade::PlayerDamage(int attacker, int victim, int dmg_health, int dmg_armor) {
 	CRPG_Player *a_player, *v_player;
 	float duration;
-
-	if(!CRPG::istrcmp((char*)weapon, "hegrenade"))
-		return ;
 
 	if((dmg_health+dmg_armor) < FNADE_DMG_MIN)
 		return ;
