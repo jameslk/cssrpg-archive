@@ -23,6 +23,7 @@ private:
 	/* Private Functions */
 	/* Calculate how many levels to increase by experience and current level */
 	static unsigned int calc_lvl_inc(unsigned int lvl, unsigned int exp);
+	static float team_ratio(enum cssteam_t numerator);
 
 public:
 	/* Public Functions */
@@ -32,8 +33,15 @@ public:
 
 	static unsigned int LvltoExp(unsigned int lvl);
 
-	static void PlayerDamage(int attacker, int dmg_health, int dmg_armor);
+	static void PlayerDamage(int attacker, const char *weapon, int dmg_health, int dmg_armor);
 	static void PlayerKill(int attacker, int victim, bool headshot);
+
+	static void BombPlanted(int userid);
+	static void BombDefused(int userid);
+	static void BombExploded(int userid);
+	static void HostageRescued(int userid);
+	static void VipEscaped(int userid);
+	static void WinningTeam(int team, int reason);
 };
 
 class CRPG_RankManager {

@@ -73,6 +73,30 @@ unsigned int CRPG_StatsManager::calc_lvl_inc(unsigned int lvl, unsigned int exp)
 	return lvl_inc;
 }
 
+float CRPG_StatsManager::team_ratio(enum cssteam_t numerator) {
+	unsigned int i = CRPG_Player::player_count;
+	float teamratio, ct_count = 0.0, t_count = 0.0;
+
+	if(numerator == team_none)
+		return 0.0;
+
+	while(i--) {
+		if(CRPG_Player::players[i] != NULL) {
+			if(CRPG_Player::players[i]->css.team == team_ct)
+				ct_count++;
+			else if(CRPG_Player::players[i]->css.team == team_t)
+				t_count++;
+		}
+	}
+
+	if(numerator == team_t)
+		teamratio = t_count/ct_count;
+	else
+		teamratio = ct_count/t_count;
+
+	return teamratio;
+}
+
 void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc) {
 	if(!lvl_inc) {
 		CRPG::ConsoleMsg("player_new_lvl: lvl_inc = 0", MTYPE_WARNING);
@@ -85,7 +109,9 @@ void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc
 
 	CRPG::DebugMsg("%s is now level %d (%d level increase(s))", player->name(), player->level, lvl_inc);
 
-	CRPG::ChatAreaMsg(0, "%s is now Level %d", player->name(), player->level);
+	if(announce_newlvl)
+		CRPG::ChatAreaMsg(0, "%s is now Level %d", player->name(), player->level);
+
 	if(!player->info()->IsFakeClient()) {
 		CRPG::EmitSound(player->index, "buttons/blip2.wav");
 		if((player->level-lvl_inc) <= 1) {
@@ -116,25 +142,40 @@ void CRPG_StatsManager::add_exp(CRPG_Player *player, unsigned long exp) {
 	exp_req = LvltoExp(player->level);
 	player->exp += exp;
 
+	if(exp_notice)
+		CRPG::ChatAreaMsg(player->index, "XP Gained: %ld", exp);
+
 	if(player->exp >= exp_req)
 		player_new_lvl(player, calc_lvl_inc(player->level, player->exp));
 
 	return ;
 }
 
-void CRPG_StatsManager::PlayerDamage(int attacker, int dmg_health, int dmg_armor) {
+void CRPG_StatsManager::PlayerDamage(int attacker, const char *weapon, int dmg_health, int dmg_armor) {
 	unsigned int total_dmg = (unsigned int)(dmg_health+dmg_armor);
+	unsigned int exp;
+
+	if(!enable)
+		return ;
 
 	if(attacker < 1)
 		return ;
 
-	add_exp(UserIDtoRPGPlayer(attacker), (unsigned int)ceil((float)total_dmg*exp_damage));
+	if(CRPG::istrcmp((char*)weapon, "knife"))
+		exp = (unsigned int)ceil((float)total_dmg*(exp_knifedmg > exp_damage ? exp_knifedmg : exp_damage));
+	else
+		exp = (unsigned int)ceil((float)total_dmg*exp_damage);
+
+	add_exp(UserIDtoRPGPlayer(attacker), exp);
 	return ;
 }
 
 void CRPG_StatsManager::PlayerKill(int attacker, int victim, bool headshot) {
 	CRPG_Player *a_player, *v_player;
 	unsigned int exp;
+
+	if(!enable)
+		return ;
 
 	if((attacker < 1) || (victim < 1))
 		return ;
@@ -151,11 +192,163 @@ void CRPG_StatsManager::PlayerKill(int attacker, int victim, bool headshot) {
 	if(a_player->css.team == v_player->css.team)
 		return ;
 
-	exp = v_player->level*exp_kill;
+	exp = (unsigned int)(v_player->level*exp_kill);
 	if(headshot)
 		exp += exp_headshot;
 
 	add_exp(a_player, exp);
+	return ;
+}
+
+void CRPG_StatsManager::BombPlanted(int userid) {
+	CRPG_Player *player = UserIDtoRPGPlayer(userid);
+	float teamratio;
+
+	if(!enable)
+		return ;
+
+	if(player == NULL)
+		return ;
+
+	if(player->css.team == team_none)
+		return ;
+
+	teamratio = team_ratio(player->css.team == team_t ? team_ct : team_t);
+	add_exp(player, (unsigned int)ceil(teamratio*exp_bombplanted));
+
+	return ;
+}
+
+void CRPG_StatsManager::BombDefused(int userid) {
+	CRPG_Player *player = UserIDtoRPGPlayer(userid);
+	float teamratio;
+
+	if(!enable)
+		return ;
+
+	if(player == NULL)
+		return ;
+
+	if(player->css.team == team_none)
+		return ;
+
+	teamratio = team_ratio(player->css.team == team_t ? team_ct : team_t);
+	add_exp(player, (unsigned int)ceil(teamratio*exp_bombdefused));
+
+	return ;
+}
+
+void CRPG_StatsManager::BombExploded(int userid) {
+	CRPG_Player *player = UserIDtoRPGPlayer(userid);
+	float teamratio;
+
+	if(!enable)
+		return ;
+
+	if(player == NULL)
+		return ;
+
+	if(player->css.team == team_none)
+		return ;
+
+	teamratio = team_ratio(player->css.team == team_t ? team_ct : team_t);
+	add_exp(player, (unsigned int)ceil(teamratio*exp_bombexploded));
+
+	return ;
+}
+
+void CRPG_StatsManager::HostageRescued(int userid) {
+	CRPG_Player *player = UserIDtoRPGPlayer(userid);
+	float teamratio;
+
+	if(!enable)
+		return ;
+
+	if(player == NULL)
+		return ;
+
+	if(player->css.team == team_none)
+		return ;
+
+	teamratio = team_ratio(player->css.team == team_t ? team_ct : team_t);
+	add_exp(player, (unsigned int)ceil(teamratio*exp_hostage));
+
+	return ;
+}
+
+void CRPG_StatsManager::VipEscaped(int userid) {
+	CRPG_Player *player = UserIDtoRPGPlayer(userid);
+	float teamratio;
+
+	if(!enable)
+		return ;
+
+	if(player == NULL)
+		return ;
+
+	if(player->css.team == team_none)
+		return ;
+
+	teamratio = team_ratio(player->css.team == team_t ? team_ct : team_t);
+	add_exp(player, (unsigned int)ceil(teamratio*exp_vipescaped));
+
+	return ;
+}
+
+/* Experience given to the team for one of these reasons:
+	1   Target Successfully Bombed!
+	2   The VIP has escaped!
+	3   VIP has been assassinated!
+	7   The bomb has been defused!
+	11   All Hostages have been rescued!
+	12   Target has been saved!
+	13   Hostages have not been rescued!
+*/
+void CRPG_StatsManager::WinningTeam(int team, int reason) {
+	CRPG_Player *player;
+	unsigned int i = CRPG_Player::player_count, exp = 0;
+	cssteam_t winningteam;
+	float teamratio;
+
+	if(!enable)
+		return ;
+
+	if(team == 2) {
+		winningteam = team_t;
+		teamratio = team_ratio(team_ct);
+	}
+	else if(team == 3) {
+		winningteam = team_ct;
+		teamratio = team_ratio(team_t);
+	}
+	else {
+		return ;
+	}
+
+	switch(reason) {
+		case 1:
+		case 2:
+		case 3:
+		case 7:
+		case 11:
+		case 12:
+		case 13:
+			exp = (unsigned int)ceil(teamratio*exp_teamwin);
+			break;
+
+		default:
+			return ;
+	}
+
+	i = CRPG_Player::player_count;
+	while(i--) {
+		player = CRPG_Player::players[i];
+		if(player != NULL) {
+			if(player->css.team == winningteam)
+				add_exp(player, exp);
+		}
+	}
+
 	return ;
 }
 
