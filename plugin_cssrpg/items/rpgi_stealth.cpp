@@ -45,7 +45,7 @@ CRPG_Timer* CRPGI_Stealth::updatevis_timer;
 
 void CRPGI_Stealth::Init(void) {
 	IF_ITEM_ENABLED(ITEM_REGEN)
-		updatevis_timer = CRPG_Timer::AddTimer(20, 0, CRPGI_Stealth::UpdateVisibilities, 0);
+		updatevis_timer = CRPG_Timer::AddTimer(3, 0, CRPGI_Stealth::UpdateVisibilities, 0);
 	else
 		updatevis_timer = NULL;
 
