@@ -405,12 +405,14 @@ void CRPG_Player::LoadData(void) {
 
 	/* Player Info */
 	if(steamid_save && CRPG::steamid_check((char*)this->steamid())) {
-		retval = CRPG::db->Query(&result, "SELECT * FROM %s WHERE steamid = '%q'",
+		retval = CRPG::db->Query(&result,
+			"SELECT * FROM %s WHERE steamid = '%q' ORDER BY level DESC LIMIT 1",
 			TBL_PLAYERS, this->name(), this->steamid());
 	}
 	else {
-	retval = CRPG::db->Query(&result, "SELECT * FROM %s WHERE name = '%q' AND steamid = '%q'",
-		TBL_PLAYERS, this->name(), this->steamid());
+		retval = CRPG::db->Query(&result,
+			"SELECT * FROM %s WHERE name = '%q' AND steamid = '%q' ORDER BY level DESC LIMIT 1",
+			TBL_PLAYERS, this->name(), this->steamid());
 	}
 
 	if(!retval) {
@@ -510,7 +512,7 @@ void CRPG_Player::ResetStats(void) {
 		CRPG::item_types[i].sell_item(this);
 	}
 
-	this->level = 0;
+	this->level = 1;
 	this->exp = 0;
 	this->credits = 0;
 
