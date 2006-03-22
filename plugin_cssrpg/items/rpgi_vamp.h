@@ -32,7 +32,7 @@ public:
 	static void BuyItem(void *ptr);
 	static void SellItem(void *ptr);
 
-	static void PlayerDamage(int attacker, int dmg_health, int dmg_armor);
+	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor);
 };
 
 #endif

@@ -78,26 +78,24 @@ void CRPGI_Vamp::add_health(CRPG_Player *player, unsigned int hp) {
 	return ;
 }
 
-void CRPGI_Vamp::PlayerDamage(int attacker, int dmg_health, int dmg_armor) {
+void CRPGI_Vamp::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor) {
 	unsigned int total_dmg = (unsigned int)(dmg_health+dmg_armor);
 	float inc;
-	CRPG_Player *player;
 
 	IF_ITEM_NENABLED(ITEM_VAMP)
 		return ;
 
-	player = UserIDtoRPGPlayer(attacker);
-	if(player == NULL)
+	if(attacker->css.team == victim->css.team)
 		return ;
 
-	if(!player->items[ITEM_VAMP].level)
+	if(!attacker->items[ITEM_VAMP].level)
 		return ;
 
-	if((player->isfake()) && (!CRPG_GlobalSettings::bot_enable))
+	if((attacker->isfake()) && (!CRPG_GlobalSettings::bot_enable))
 		return ;
 
-	inc = (float)player->items[ITEM_VAMP].level*VAMP_INC;
-	add_health(player, floor(((float)total_dmg*inc)+0.5f));
+	inc = (float)attacker->items[ITEM_VAMP].level*VAMP_INC;
+	add_health(attacker, floor(((float)total_dmg*inc)+0.5f));
 
 	return ;
 }
