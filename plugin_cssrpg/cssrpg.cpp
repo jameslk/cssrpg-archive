@@ -407,7 +407,7 @@ void CRPG_Player::LoadData(void) {
 	if(steamid_save && CRPG::steamid_check((char*)this->steamid())) {
 		retval = CRPG::db->Query(&result,
 			"SELECT * FROM %s WHERE steamid = '%q' ORDER BY level DESC LIMIT 1",
-			TBL_PLAYERS, this->name(), this->steamid());
+			TBL_PLAYERS, this->steamid());
 	}
 	else {
 		retval = CRPG::db->Query(&result,
