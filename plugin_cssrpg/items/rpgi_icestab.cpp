@@ -107,8 +107,7 @@ void CRPGI_IceStab::GameFrame(void) {
 	return ;
 }
 
-void CRPGI_IceStab::PlayerDamage(int attacker, int victim, int dmg_health, int dmg_armor) {
-	CRPG_Player *a_player, *v_player;
+void CRPGI_IceStab::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor) {
 	CRPGI_IceStab *stab;
 
 	if((dmg_health+dmg_armor) < ICESTAB_DMG_MIN)
@@ -117,29 +116,32 @@ void CRPGI_IceStab::PlayerDamage(int attacker, int victim, int dmg_health, int d
 	IF_ITEM_NENABLED(ITEM_ICESTAB)
 		return ;
 
-	a_player = UserIDtoRPGPlayer(attacker);
-	if(a_player == NULL)
+	if(!attacker->items[ITEM_ICESTAB].level)
 		return ;
 
-	if(!a_player->items[ITEM_ICESTAB].level)
+	IF_BOT_NENABLED(attacker)
 		return ;
 
-	IF_BOT_NENABLED(a_player)
+	if(attacker->css.team == victim->css.team)
 		return ;
 
-	v_player = UserIDtoRPGPlayer(victim);
-	if(v_player == NULL)
-		return ;
+	for(stab = ll_first;stab != NULL;stab = stab->ll_next) {
+		if(stab->v_index == victim->index)
+			break;
+	}
 
-	stab = new CRPGI_IceStab;
-	stab->v_index = v_player->index;
-	stab->duration = CRPG::s_globals()->curtime+(ICESTAB_INC*a_player->items[ITEM_ICESTAB].level);
+	if(stab == NULL) {
+		stab = new CRPGI_IceStab;
+		stab->v_index = victim->index;
+		stab->ll_add();
+	}
+
+	stab->duration = CRPG::s_globals()->curtime+(ICESTAB_INC*attacker->items[ITEM_ICESTAB].level);
 	stab->fade = 0;
-	stab->ll_add();
 
-	CBaseEntity_SetMoveType((CBaseEntity*)v_player->cbp(), MOVETYPE_NONE, MOVECOLLIDE_DEFAULT);
-	v_player->cbp()->SetRenderMode(kRenderTransColor);
-	v_player->cbp()->SetRenderColor(0, 0, 255);
+	CBaseEntity_SetMoveType((CBaseEntity*)victim->cbp(), MOVETYPE_NONE, MOVECOLLIDE_DEFAULT);
+	victim->cbp()->SetRenderMode(kRenderTransColor);
+	victim->cbp()->SetRenderColor(0, 0, 255);
 
 	return ;
 }

@@ -38,7 +38,7 @@ public:
 	static void SellItem(void *ptr);
 
 	static void GameFrame(void);
-	static void PlayerDamage(int attacker, int victim, int dmg_health, int dmg_armor);
+	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor);
 };
 
 #endif
