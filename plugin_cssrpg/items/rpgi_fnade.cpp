@@ -57,8 +57,7 @@ void CRPGI_FNade::SellItem(void *ptr) {
 	return ;
 }
 
-void CRPGI_FNade::PlayerDamage(int attacker, int victim, int dmg_health, int dmg_armor) {
-	CRPG_Player *a_player, *v_player;
+void CRPGI_FNade::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor) {
 	float duration;
 
 	if((dmg_health+dmg_armor) < FNADE_DMG_MIN)
@@ -67,25 +66,17 @@ void CRPGI_FNade::PlayerDamage(int attacker, int victim, int dmg_health, int dmg
 	IF_ITEM_NENABLED(ITEM_FNADE)
 		return ;
 
-	a_player = UserIDtoRPGPlayer(attacker);
-	if(a_player == NULL)
+	if(!attacker->items[ITEM_FNADE].level)
 		return ;
 
-	if(!a_player->items[ITEM_FNADE].level)
+	IF_BOT_NENABLED(attacker)
 		return ;
 
-	IF_BOT_NENABLED(a_player)
+	if(attacker->css.team == victim->css.team)
 		return ;
 
-	v_player = UserIDtoRPGPlayer(victim);
-	if(v_player == NULL)
-		return ;
-
-	if(a_player->css.team == v_player->css.team)
-		return ;
-
-	duration = (float)(a_player->items[ITEM_FNADE].level*FNADE_INC);
-	CBaseAnimating_Ignite(dynamic_cast<CBaseAnimating*>(v_player->cbp()), duration);
+	duration = (float)(attacker->items[ITEM_FNADE].level*FNADE_INC);
+	CBaseAnimating_Ignite(dynamic_cast<CBaseAnimating*>(victim->cbp()), duration);
 
 	return ;
 }
