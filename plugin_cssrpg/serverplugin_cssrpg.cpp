@@ -542,8 +542,33 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 			type = help;
 		else if(FStrEq(pcmd, "sell"))
 			type = sell;
+		else if(FStrEq(pcmd, "rank"))
+			type = none;
+		else if(FStrEq(pcmd, "top10"))
+			type = top10;
 		else
 			return PLUGIN_CONTINUE;
+
+		if(type == none) {
+			CRPG_Player *player;
+
+			if(engine->Cmd_Argc() < 2) {
+				player = EdicttoRPGPlayer(pEntity);
+				if(player == NULL)
+					return PLUGIN_STOP;
+
+				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
+			}
+			else {
+				player = IndextoRPGPlayer(CRPG::FindPlayer(engine->Cmd_Argv(1)));
+				if(player == NULL)
+					return PLUGIN_STOP;
+
+				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
+			}
+
+			return PLUGIN_STOP;
+		}
 
 		menu = CRPG_Menu::AddMenu(pEntity);
 		if(menu == NULL) {
@@ -551,6 +576,9 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 			return PLUGIN_STOP;
 		}
 		menu->submenu = type;
+		if(type == top10)
+			menu->header = 0; /* turn off Credits header */
+
 		menu->CreateMenu();
 		return PLUGIN_STOP;
 	}
@@ -572,16 +600,20 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	const char *name = event->GetName();
 
 	if(FStrEq(name, "player_hurt")) {
-		int attacker = event->GetInt("attacker"), userid = event->GetInt("userid");
+		CRPG_Player *attacker = UserIDtoRPGPlayer(event->GetInt("attacker"));
+		CRPG_Player *victim = UserIDtoRPGPlayer(event->GetInt("userid"));
 		int dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
 		const char *weapon = event->GetString("weapon");
 
-		CRPG_StatsManager::PlayerDamage(attacker, weapon, dmg_health, dmg_armor);
-		CRPGI_Vamp::PlayerDamage(attacker, dmg_health, dmg_armor);
+		if(attacker == NULL || victim == NULL)
+			return ;
+
+		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
+		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
 		if(CRPG::istrcmp((char*)weapon, "hegrenade"))
-			CRPGI_FNade::PlayerDamage(attacker, userid, dmg_health, dmg_armor);
+			CRPGI_FNade::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
 		else if(CRPG::istrcmp((char*)weapon, "knife"))
-			CRPGI_IceStab::PlayerDamage(attacker, userid, dmg_health, dmg_armor);
+			CRPGI_IceStab::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
 	}
 	else if(FStrEq(name, "player_jump")) {
 		CRPGI_LJump::PlayerJump(event->GetInt("userid"));
@@ -632,9 +664,48 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			menu->submenu = help;
 			menu->CreateMenu();
 		}
+		else if(!memcmp(text, "rpgrank", 7)) {
+			CRPG_Player *player;
+
+			text += 7;
+			if(!*text) {
+				player = UserIDtoRPGPlayer(userid);
+				if(player == NULL)
+					return ;
+
+				CRPG_RankManager::ChatAreaRank(player);
+			}
+			else {
+				if(*text == ' ') {
+					text += 1;
+					if(!*text) {
+						return ;
+					}
+					else {
+						player = IndextoRPGPlayer(CRPG::FindPlayer((char*)text));
+						if(player == NULL)
+							return ;
+
+						CRPG_RankManager::ChatAreaRank(player);
+					}
+				}
+			}
+		}
+		else if(FStrEq(text, "rpgtop10")) {
+			CRPG_Menu *menu;
+
+			menu = CRPG_Menu::AddMenu(CRPG::UserIDtoEdict(userid));
+			if(menu == NULL) {
+				CRPG::ConsoleMsg("menu = NULL (5)", MTYPE_ERROR);
+				return ;
+			}
+			menu->submenu = top10;
+			menu->header = 0; /* turn off Credits header */
+			menu->CreateMenu();
+		}
 	}
 	else if(FStrEq(name, "round_end")) {
-		CRPG_StatsManager::WinningTeam(event->GetInt("team"), event->GetInt("reason"));
+		CRPG_StatsManager::WinningTeam(event->GetInt("winner"), event->GetInt("reason"));
 	}
 	else if(FStrEq(name, "bomb_planted")) {
 		CRPG_StatsManager::BombPlanted(event->GetInt("userid"));
