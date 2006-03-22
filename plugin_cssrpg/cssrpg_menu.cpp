@@ -341,6 +341,29 @@ void CRPG_Menu::HelpSelect(unsigned int option) {
 	return ;
 }
 
+void CRPG_Menu::GetTop10Page(void) {
+	unsigned int i;
+	struct ranklist **ranks;
+
+	CRPG_RankManager::GetTop10Players(&ranks);
+	if(ranks == NULL)
+		return ;
+
+	BuildOutput(0, "Top 10 CSS:RPG Players\n-----\n");
+
+	for(i = 0;i < 10;i++) {
+		if(i)
+			BuildOutput(0, "\n");
+
+		BuildOutput(0, "->%d. %s Lvl: %ld Exp: %ld Cr: %ld",
+			i+1, ranks[i]->name, ranks[i]->level, ranks[i]->exp, ranks[i]->credits);
+	}
+	SetOptions(1, 2, 3, 4, 5, 6, 7, 8, 9);
+
+	CRPG_RankManager::FreeRanksList(ranks);
+	return ;
+}
+
 void CRPG_Menu::GetMenu(void) {
 	switch(this->submenu) {
 		case none:
@@ -366,6 +389,10 @@ void CRPG_Menu::GetMenu(void) {
 		
 		case help:
 			GetHelpPage();
+			break;
+
+		case top10:
+			GetTop10Page();
 			break;
 
 		default:
@@ -458,7 +485,9 @@ void CRPG_Menu::CreateMenu(void) {
 
 	this->options = 0;
 	
-	BuildOutput(0, "Credits %ld\n-----\n", player->credits);
+	if(header)
+		BuildOutput(0, "Credits %ld\n-----\n", player->credits);
+
 	GetMenu();
 
 	/* Finalize Menu */
@@ -510,6 +539,10 @@ void CRPG_Menu::SelectOption(unsigned int option) {
 
 		case help:
 			HelpSelect(option);
+			break;
+
+		case top10:
+			this->DelMenu();
 			break;
 
 		default:

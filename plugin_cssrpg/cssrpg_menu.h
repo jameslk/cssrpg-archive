@@ -18,7 +18,12 @@
 #ifndef CSSRPG_MENU_H
 #define CSSRPG_MENU_H
 
-enum submenu_t {none, upgrades, sell, stats, settings, help};
+enum submenu_t {
+	/* Default RPG Menu submenus */
+	none, upgrades, sell, stats, settings, help,
+	/* These menus are hidden */
+	top10
+};
 
 #include "cssrpg.h"
 #include "cssrpg_misc.h"
@@ -39,6 +44,8 @@ class CRPG_Menu: public CRPG_PlayerClass<CRPG_Menu>, private CRPG_GlobalSettings
 	void GetHelpPage(void);
 	void HelpSelect(unsigned int option);
 
+	void GetTop10Page(void);
+
 	void GetMenu(void);
 	void SetOptions(char bit1, char bit2, char bit3 = 0, char bit4 = 0, char bit5 = 0, char bit6 = 0, char bit7 = 0, char bit8 = 0, char bit9 = 0);
 	void SetOptions(unsigned int opt_num);
@@ -54,8 +61,10 @@ public:
 	int page;
 	unsigned int options;
 
+	char header; /* Show the Credits header for this menu (on by default) */
+
 	/* Public Functions */
-	CRPG_Menu(): data(NULL), menu_outlen(0), submenu(none), page(0), options(0) {
+	CRPG_Menu(): data(NULL), menu_outlen(0), submenu(none), page(0), options(0), header(1) {
 		index = 0;
 		userid = 0;
 	}
