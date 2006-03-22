@@ -29,11 +29,11 @@ public:
 	/* Public Functions */
 	/* Calculate the experience needed for this level */
 	static void player_new_lvl(CRPG_Player *player, unsigned int lvl_inc);
-	static void add_exp(CRPG_Player *player, unsigned long exp);
+	static void add_exp(CRPG_Player *player, unsigned long exp, char hidenotice = 0);
 
 	static unsigned int LvltoExp(unsigned int lvl);
 
-	static void PlayerDamage(int attacker, const char *weapon, int dmg_health, int dmg_armor);
+	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, const char *weapon, int dmg_health, int dmg_armor);
 	static void PlayerKill(int attacker, int victim, bool headshot);
 
 	static void BombPlanted(int userid);
@@ -44,11 +44,20 @@ public:
 	static void WinningTeam(int team, int reason);
 };
 
+struct ranklist {
+	char name[32];
+	unsigned int level;
+	unsigned int exp;
+	unsigned long credits;
+};
+
 class CRPG_RankManager {
 public:
 	static unsigned int GetPlayerRank(CRPG_Player *player);
 	static unsigned int GetRankCount(void);
-	//static unsigned int GetTopNPlayers(char ***players, unsigned int n);
+	static void GetTop10Players(struct ranklist ***ranks);
+	static void FreeRanksList(struct ranklist **ranks);
+	static void ChatAreaRank(CRPG_Player *player, int sendto = -1);
 };
 
 #endif
