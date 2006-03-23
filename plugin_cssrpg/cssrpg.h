@@ -187,7 +187,7 @@ CRPG_Player* EdicttoRPGPlayer(edict_t *e);
 CRPG_Player* UserIDtoRPGPlayer(int userid);
 CRPG_Player* SteamIDtoRPGPlayer(const char *steamid);
 
-#define IF_BOT_ENABLED(x) if((x->isfake()) && (CRPG_GlobalSettings::bot_enable))
-#define IF_BOT_NENABLED(x) if((x->isfake()) && (!CRPG_GlobalSettings::bot_enable))
+#define IF_BOT_ENABLED(x) if(!x->isfake() || (x->isfake() && CRPG_GlobalSettings::bot_enable))
+#define IF_BOT_NENABLED(x) if(x->isfake() && !CRPG_GlobalSettings::bot_enable)
 
 #endif
