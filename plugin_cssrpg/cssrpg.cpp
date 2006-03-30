@@ -76,56 +76,56 @@ void CRPG::init_item_types(void) {
 	/* Regen */
 	strcpy(item_types[ITEM_REGEN].name, "Regeneration");
 	strcpy(item_types[ITEM_REGEN].shortname, "regen");
-	item_types[ITEM_REGEN].maxlevel = 5;
+	item_types[ITEM_REGEN].maxlevelbarrier = 10;
 	item_types[ITEM_REGEN].buy_item = CRPGI_Regen::BuyItem;
 	item_types[ITEM_REGEN].sell_item = CRPGI_Regen::SellItem;
 
 	/* HBonus */
 	strcpy(item_types[ITEM_HBONUS].name, "Health+");
 	strcpy(item_types[ITEM_HBONUS].shortname, "hbonus");
-	item_types[ITEM_HBONUS].maxlevel = 16;
+	item_types[ITEM_HBONUS].maxlevelbarrier = 16;
 	item_types[ITEM_HBONUS].buy_item = CRPGI_HBonus::BuyItem;
 	item_types[ITEM_HBONUS].sell_item = CRPGI_HBonus::SellItem;
 
 	/* Resup */
 	strcpy(item_types[ITEM_RESUP].name, "Resupply");
 	strcpy(item_types[ITEM_RESUP].shortname, "resup");
-	item_types[ITEM_RESUP].maxlevel = 5;
+	item_types[ITEM_RESUP].maxlevelbarrier = 10;
 	item_types[ITEM_RESUP].buy_item = CRPGI_Resup::BuyItem;
 	item_types[ITEM_RESUP].sell_item = CRPGI_Resup::SellItem;
 
 	/* Vamp */
 	strcpy(item_types[ITEM_VAMP].name, "Vampire");
 	strcpy(item_types[ITEM_VAMP].shortname, "vamp");
-	item_types[ITEM_VAMP].maxlevel = 10;
+	item_types[ITEM_VAMP].maxlevelbarrier = 10;
 	item_types[ITEM_VAMP].buy_item = CRPGI_Vamp::BuyItem;
 	item_types[ITEM_VAMP].sell_item = CRPGI_Vamp::SellItem;
 
 	/* Stealth */
 	strcpy(item_types[ITEM_STEALTH].name, "Stealth");
 	strcpy(item_types[ITEM_STEALTH].shortname, "stealth");
-	item_types[ITEM_STEALTH].maxlevel = 5;
+	item_types[ITEM_STEALTH].maxlevelbarrier = 5;
 	item_types[ITEM_STEALTH].buy_item = CRPGI_Stealth::BuyItem;
 	item_types[ITEM_STEALTH].sell_item = CRPGI_Stealth::SellItem;
 
 	/* LJump */
 	strcpy(item_types[ITEM_LJUMP].name, "LongJump");
 	strcpy(item_types[ITEM_LJUMP].shortname, "ljump");
-	item_types[ITEM_LJUMP].maxlevel = 5;
+	item_types[ITEM_LJUMP].maxlevelbarrier = 6;
 	item_types[ITEM_LJUMP].buy_item = CRPGI_LJump::BuyItem;
 	item_types[ITEM_LJUMP].sell_item = CRPGI_LJump::SellItem;
 
 	/* FNade */
 	strcpy(item_types[ITEM_FNADE].name, "FireGrenade");
 	strcpy(item_types[ITEM_FNADE].shortname, "fnade");
-	item_types[ITEM_FNADE].maxlevel = 5;
+	item_types[ITEM_FNADE].maxlevelbarrier = 6;
 	item_types[ITEM_FNADE].buy_item = CRPGI_FNade::BuyItem;
 	item_types[ITEM_FNADE].sell_item = CRPGI_FNade::SellItem;
 
 	/* IceStab */
 	strcpy(item_types[ITEM_ICESTAB].name, "IceStab");
 	strcpy(item_types[ITEM_ICESTAB].shortname, "icestab");
-	item_types[ITEM_ICESTAB].maxlevel = 3;
+	item_types[ITEM_ICESTAB].maxlevelbarrier = 5;
 	item_types[ITEM_ICESTAB].buy_item = CRPGI_IceStab::BuyItem;
 	item_types[ITEM_ICESTAB].sell_item = CRPGI_IceStab::SellItem;
 
@@ -346,7 +346,8 @@ CRPG_Player* CRPG_Player::AddPlayer(edict_t *e) {
 		maxlevel = CRPG::item_types[i].maxlevel;
 		while(player->items[i].level > maxlevel) {
 			/* Give player their credit's back */
-			player->credits += CRPGI::GetItemCost(i, player->items[i].level--);
+			player->credits += CRPGI::GetItemCost(i, player->items[i].level);
+			player->TakeItem(i);
 		}
 	}
 

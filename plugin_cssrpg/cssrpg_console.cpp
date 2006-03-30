@@ -31,6 +31,7 @@
 #include "cssrpg_menu.h"
 #include "cssrpg_stats.h"
 #include "cssrpg_console.h"
+#include "items/rpgi.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -346,45 +347,53 @@ void CRPG_GlobalSettings::InitSettings(void) {
 
 	type = &CRPG::item_types[ITEM_REGEN];
 	CRPG_Setting::CreateVar("regen_enable", "1", "Sets the Regeneration item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("regen_maxlevel", "5", "Regeneration item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("regen_cost", "5", "Regeneration item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("regen_icost", "10", "Regeneration item cost increment for each level", var_uint, &type->inc_cost);
 	
 	type = &CRPG::item_types[ITEM_HBONUS];
 	CRPG_Setting::CreateVar("hbonus_enable", "1", "Sets the Health Bonus (Health+) item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("hbonus_maxlevel", "16", "Health Bonus (Health+) item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("hbonus_cost", "10", "Health Bonus (Health+) item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("hbonus_icost", "10", "Health Bonus (Health+) item cost increment for each level", var_uint, &type->inc_cost);
 	
 	type = &CRPG::item_types[ITEM_RESUP];
 	CRPG_Setting::CreateVar("resup_enable", "1", "Sets the Resupply item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("resup_maxlevel", "5", "Resupply item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("resup_cost", "5", "Resupply item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("resup_icost", "15", "Resupply item cost increment for each level", var_uint, &type->inc_cost);
 	
 	type = &CRPG::item_types[ITEM_VAMP];
 	CRPG_Setting::CreateVar("vamp_enable", "1", "Sets the Vampire item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("vamp_maxlevel", "10", "Vampire item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("vamp_cost", "15", "Vampire item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("vamp_icost", "10", "Vampire item cost increment for each level", var_uint, &type->inc_cost);
 
 	type = &CRPG::item_types[ITEM_STEALTH];
 	CRPG_Setting::CreateVar("stealth_enable", "1", "Sets the Stealth item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("stealth_maxlevel", "5", "Stealth item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("stealth_cost", "15", "Stealth item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("stealth_icost", "10", "Stealth item cost increment for each level", var_uint, &type->inc_cost);
 
 	type = &CRPG::item_types[ITEM_LJUMP];
 	CRPG_Setting::CreateVar("ljump_enable", "1", "Sets the LongJump item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("ljump_maxlevel", "5", "LongJump item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("ljump_cost", "20", "LongJump item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("ljump_icost", "15", "LongJump item cost increment for each level", var_uint, &type->inc_cost);
 
 	type = &CRPG::item_types[ITEM_FNADE];
 	CRPG_Setting::CreateVar("fnade_enable", "1", "Sets the FireGrenade item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("fnade_maxlevel", "5", "FireGrenade item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("fnade_cost", "15", "FireGrenade item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("fnade_icost", "10", "FireGrenade item cost increment for each level", var_uint, &type->inc_cost);
 
 	type = &CRPG::item_types[ITEM_ICESTAB];
 	CRPG_Setting::CreateVar("icestab_enable", "1", "Sets the IceStab item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("icestab_maxlevel", "3", "IceStab item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("icestab_cost", "20", "IceStab item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("icestab_icost", "10", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
 
-	CRPG_Setting::CreateVar("exp_notice", "0", "Sets notifications to players when they gain Experience", var_bool, &exp_notice);
+	CRPG_Setting::CreateVar("exp_notice", "1", "Sets notifications to players when they gain Experience", var_bool, &exp_notice);
 	CRPG_Setting::CreateVar("exp_max", "50000", "Maximum experience that will ever be required", var_uint, &exp_max);
 	CRPG_Setting::CreateVar("exp_start", "250", "Experience required for Level 1", var_uint, &exp_start);
 	CRPG_Setting::CreateVar("exp_inc", "50", "Incriment experience requied for each level (until cssrpg_exp_max)", var_uint, &exp_inc);
