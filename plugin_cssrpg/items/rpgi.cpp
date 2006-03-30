@@ -61,6 +61,52 @@ void CRPGI::ShutDown(void) {
 	return ;
 }
 
+#define PREFIX_LEN 7 // length of "cssrpg_"
+VAR_FUNC(CRPGI::CVARItemMaxLvl) {
+	unsigned int lvl = abs(atoi(str)), i = ITEM_COUNT, index;
+	struct item_type *type = NULL;
+	char *name = setting->name+PREFIX_LEN;
+
+	if(!lvl) {
+		setting->var->SetValue(atoi(setting->defaultval));
+		return ;
+	}
+
+	while(i--) {
+		if(!memcmp(name, CRPG::item_types[i].shortname, strlen(CRPG::item_types[i].shortname))) {
+			index = i;
+			type = &CRPG::item_types[i];
+		}
+	}
+
+	if(type == NULL) {
+		setting->var->SetValue(atoi(setting->defaultval));
+		return ;
+	}
+
+	if(lvl > type->maxlevelbarrier) {
+		type->maxlevel = type->maxlevelbarrier;
+		setting->var->SetValue((int)type->maxlevelbarrier);
+	}
+	else {
+		type->maxlevel = lvl;
+		setting->var->SetValue((int)lvl);
+	}
+
+	i = CRPG_Player::player_count;
+	while(i--) {
+		if(CRPG_Player::players[i] != NULL) {
+			while(CRPG_Player::players[i]->items[index].level > type->maxlevel) {
+				/* Give player their credit's back */
+				CRPG_Player::players[i]->credits += CRPGI::GetItemCost(index, CRPG_Player::players[i]->items[index].level);
+				CRPG_Player::players[i]->TakeItem(index);
+			}
+		}
+	}
+
+	return ;
+}
+
 void CRPGI::PlayerUpdate(CRPG_Player *player) {
 	if(player == NULL)
 		return ;
