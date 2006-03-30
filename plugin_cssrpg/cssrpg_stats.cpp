@@ -143,7 +143,7 @@ void CRPG_StatsManager::add_exp(CRPG_Player *player, unsigned long exp, char hid
 	player->exp += exp;
 
 	if(exp_notice && !hidenotice)
-		CRPG::ChatAreaMsg(player->index, "XP Gained: %ld", exp);
+		CRPG::HintTextMsg(player->index, "Experience Gained: %ld+\nExperience Quota: %ld/%ld", exp, player->exp, exp_req);
 
 	if(player->exp >= exp_req)
 		player_new_lvl(player, calc_lvl_inc(player->level, player->exp));
