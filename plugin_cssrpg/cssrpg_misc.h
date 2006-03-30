@@ -62,6 +62,8 @@ class IFileSystem;
 class CRPG_Utils {
 private:
 	/* Private Variables */
+	static int saytext;
+	static int hinttext;
 	static int vguimenu;
 
 public:
@@ -87,8 +89,8 @@ public:
 
 	static int FindPlayer(char *str); /* used to find a player by their name or part of their name or also by userid */
 	static void ChatAreaMsg(int index, char *msg, ...);
+	static void HintTextMsg(int index, char *msgf, ...);
 	static void EmitSound(int index, char *sound_path);
-
 	static void ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd = NULL);
 
 	static void ConsoleMsg(char *msgf, char *msg_type, ...);

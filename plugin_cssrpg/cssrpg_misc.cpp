@@ -55,6 +55,8 @@ extern IServerGameDLL *gamedll;
 /*	//////////////////////////////////////
 	CRPG_Utils Class
 	////////////////////////////////////// */
+int CRPG_Utils::saytext = -1;
+int CRPG_Utils::hinttext = -1;
 int CRPG_Utils::vguimenu = -1;
 
 int CRPG_Utils::maxClients(void) {
@@ -174,11 +176,11 @@ const char* CRPG_Utils::EdicttoSteamID(edict_t *e) {
 }
 
 int CRPG_Utils::UserMessageIndex(char *name) {
-   char cmpname[256];
-   int i, sizereturn = 0;
+	char cmpname[256];
+	int i, sizereturn = 0;
 
-	for(i = 1;i < 22;i++) {
-		gamedll->GetUserMessageInfo(i, cmpname, 256, sizereturn); 
+	for(i = 1;i < 30;i++) {
+		gamedll->GetUserMessageInfo(i, cmpname, 256, sizereturn);
 		if(name && !strcmp(name, cmpname))
 			return i;
 	}
@@ -252,6 +254,34 @@ void CRPG_Utils::ChatAreaMsg(int index, char *msgf, ...) {
 	buffer->WriteByte(0);
 	buffer->WriteString(msg);
 	buffer->WriteByte(0);
+	engine->MessageEnd();
+
+	return ;
+}
+
+void CRPG_Utils::HintTextMsg(int index, char *msgf, ...) {
+	MRecipientFilter filter;
+	char msg[1024];
+	bf_write *buffer;
+	va_list ap;
+
+	if (index > maxClients() || index < 0)
+		return ;
+
+	if (!index)
+		filter.AddAllPlayers(maxClients());
+	else
+		filter.AddRecipient(index);
+
+	va_start(ap, msgf);
+	Q_vsnprintf(msg, sizeof(msg)-1, msgf, ap);
+	va_end(ap);
+
+	sprintf(msg, "%s", msg);
+
+	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), hinttext);
+	buffer->WriteByte(-1);
+	buffer->WriteString(msg);
 	engine->MessageEnd();
 
 	return ;
@@ -430,6 +460,8 @@ char* CRPG_Utils::istrstr(char *str, char *substr) {
 }
 
 void CRPG_Utils::Init() {
+	saytext = UserMessageIndex("SayText");
+	hinttext = UserMessageIndex("HintText");
 	vguimenu = UserMessageIndex("VGUIMenu");
 
 	return ;
