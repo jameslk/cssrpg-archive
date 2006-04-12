@@ -18,34 +18,18 @@
 #ifndef CSSRPG_MISC_H
 #define CSSRPG_MISC_H
 
+#ifdef WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#else
+    #include <unistd.h>
+    #include <pthread.h>
+#endif
+
 class CRPG_Player;
 class CRPG_Menu;
 class IVEngineServer;
 struct edict_t;
-
-/* "Player structure offsets for certain information"
-   Provided in "Mattie's MugMod" by Mattie Casper */
-#ifdef _WIN32 // Windows-only offsets
-	#define PRI_AMMO_CLIP 399    // for some weapons; doesn't work so well
-	#define SEC_AMMO_CLIP 402    // for starting T pistol
-	#define SEC_CT_AMMO_CLIP 404 // for starting CT pistol
-	#define GRENADE_HE    407    // hegrenade count
-	#define GRENADE_FLASH 408    // flash grenade count
-	#define GRENADE_SMOKE 409    // smoke grenade count
-	#define PLAYER_HEALTH  39    // health
-	#define PLAYER_ARMOR  749    // armor
-	#define PLAYER_MONEY  864    // cash
-#else // Linux offsets are generally 5 higher
-	#define PRI_AMMO_CLIP 404
-	#define SEC_AMMO_CLIP 407
-	#define SEC_CT_AMMO_CLIP 409
-	#define GRENADE_HE    412
-	#define GRENADE_FLASH 413
-	#define GRENADE_SMOKE 414
-	#define PLAYER_HEALTH  44
-	#define PLAYER_ARMOR  754
-	#define PLAYER_MONEY  869
-#endif
 
 #define MTYPE_ERROR "Error"
 #define MTYPE_WARNING "Warning"
@@ -62,6 +46,8 @@ class IFileSystem;
 class CRPG_Utils {
 private:
 	/* Private Variables */
+	static FILE *dlog_fptr;
+
 	static int saytext;
 	static int hinttext;
 	static int vguimenu;
@@ -70,10 +56,12 @@ public:
 	/* Public Functions */
 	static int maxClients(void);
 	static int currentClients(void);
+
 	static IVEngineServer* s_engine(void);
 	static IPlayerInfoManager* s_playerinfo(void);
 	static CGlobalVars* s_globals(void);
 	static IFileSystem* CRPG_Utils::s_filesys(void);
+	static IServerPluginHelpers* CRPG_Utils::s_helpers(void);
 
 	static unsigned int IsValidEdict(edict_t *e);
 	static unsigned int IsValidIndex(int index);
@@ -90,19 +78,39 @@ public:
 	static int FindPlayer(char *str); /* used to find a player by their name or part of their name or also by userid */
 	static void ChatAreaMsg(int index, char *msg, ...);
 	static void HintTextMsg(int index, char *msgf, ...);
-	static void EmitSound(int index, char *sound_path);
+	static void EmitSound(int index, char *sound_path, float vol = 0.7, CRPG_Player *follow = NULL);
 	static void ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd = NULL);
 
 	static void ConsoleMsg(char *msgf, char *msg_type, ...);
 	static void DebugMsg(char *msg, ...);
+	static void DebugMsg(int nolog, char *msgf, ...);
 
 	static unsigned int steamid_check(char *steamid);
 	static unsigned char* ustrncpy(unsigned char *dest, const unsigned char *src, int len);
 	static unsigned int istrcmp(char *str1, char *str2);
 	static char* istrstr(char *str, char *substr);
 
+	#ifdef WIN32
+	unsigned int CRPG_Utils::CreateThread(LPTHREAD_START_ROUTINE func, LPVOID param);
+	#else
+	unsigned int CRPG_Utils::CreateThread(void*(*func)(void*), void *param);
+	#endif
+
 	static void Init(void);
+	static void ShutDown(void);
 };
+
+#ifdef WIN32
+#define THREAD_FUNC(name) DWORD WINAPI name(LPVOID lpParam)
+#else
+#define THREAD_FUNC(name) void* name(void *param)
+#endif
+
+#define WARN_IF(expression, code) \
+	if(expression) { \
+		CRPG_Utils::DebugMsg("Warning (%s:%d): " #expression, __FILE__, __LINE__); \
+		code; \
+	}
 
 /*	//////////////////////////////////////
 	CRPG_PlayerClass Template Class

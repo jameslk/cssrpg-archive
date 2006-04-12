@@ -51,10 +51,12 @@ extern CGlobalVars *gpGlobals;
 extern IEngineSound *esounds;
 extern IFileSystem *filesystem;
 extern IServerGameDLL *gamedll;
+extern IServerPluginHelpers *helpers;
 
 /*	//////////////////////////////////////
 	CRPG_Utils Class
 	////////////////////////////////////// */
+FILE* CRPG_Utils::dlog_fptr = NULL;
 int CRPG_Utils::saytext = -1;
 int CRPG_Utils::hinttext = -1;
 int CRPG_Utils::vguimenu = -1;
@@ -81,6 +83,10 @@ CGlobalVars* CRPG_Utils::s_globals(void) {
 
 IFileSystem* CRPG_Utils::s_filesys(void) {
 	return filesystem;
+}
+
+IServerPluginHelpers* CRPG_Utils::s_helpers(void) {
+	return helpers;
 }
 
 unsigned int CRPG_Utils::IsValidEdict(edict_t *e) {
@@ -287,7 +293,7 @@ void CRPG_Utils::HintTextMsg(int index, char *msgf, ...) {
 	return ;
 }
 
-void CRPG_Utils::EmitSound(int index, char *sound_path) {
+void CRPG_Utils::EmitSound(int index, char *sound_path, float vol, CRPG_Player *follow) {
 	MRecipientFilter filter;
 
 	if (index > maxClients() || index < 0)
@@ -301,7 +307,12 @@ void CRPG_Utils::EmitSound(int index, char *sound_path) {
 	if(!esounds->IsSoundPrecached(sound_path))
 		esounds->PrecacheSound(sound_path, true);
 
-	esounds->EmitSound((IRecipientFilter&)filter, index, CHAN_AUTO, sound_path, 0.7, 0);
+	if(follow == NULL)
+		esounds->EmitSound((IRecipientFilter&)filter, index, CHAN_AUTO, sound_path, vol, 0);
+	else
+		esounds->EmitSound((IRecipientFilter&)filter, follow->index, CHAN_AUTO, sound_path,
+		vol, ATTN_NORM, 0, PITCH_NORM, &follow->cbp()->m_vecAbsOrigin, NULL, NULL, true, 0.0f, follow->index);
+
 	return ;
 }
 
@@ -362,7 +373,7 @@ void CRPG_Utils::ConsoleMsg(char *msgf, char *msg_type, ...) {
 	va_list ap;
 
 	va_start(ap, msg_type);
-	Q_vsnprintf(msg, sizeof(msg)-1, msgf, ap);
+	Q_vsnprintf(msg, 1023, msgf, ap);
 	va_end(ap);
 
 	if(msg_type == NULL)
@@ -379,7 +390,31 @@ void CRPG_Utils::DebugMsg(char *msgf, ...) {
 
 	if(CRPG_GlobalSettings::debug_mode) {
 		va_start(ap, msgf);
-		Q_vsnprintf(msg, sizeof(msg)-1, msgf, ap);
+		Q_vsnprintf(msg, 1023, msgf, ap);
+		va_end(ap);
+
+		if(dlog_fptr) {
+			fprintf(dlog_fptr, "# %s\n", msg);
+		}
+		else {
+			dlog_fptr = fopen("cssrpg.log", "a");
+			if(dlog_fptr)
+				fprintf(dlog_fptr, "# %s\n", msg);
+		}
+
+		Msg("CSS:RPG Plugin: %s\n", msg);
+	}
+
+	return ;
+}
+
+void CRPG_Utils::DebugMsg(int nolog, char *msgf, ...) {
+	char msg[1024];
+	va_list ap;
+
+	if(CRPG_GlobalSettings::debug_mode) {
+		va_start(ap, msgf);
+		Q_vsnprintf(msg, 1023, msgf, ap);
 		va_end(ap);
 
 		Msg("CSS:RPG Plugin: %s\n", msg);
@@ -459,10 +494,52 @@ char* CRPG_Utils::istrstr(char *str, char *substr) {
 	return NULL;
 }
 
-void CRPG_Utils::Init() {
+#ifdef WIN32
+unsigned int CRPG_Utils::CreateThread(LPTHREAD_START_ROUTINE func, LPVOID param) {
+    DWORD thdId;
+    HANDLE thdHandle;
+    
+	thdHandle = ::CreateThread(NULL, 0, func, param, 0, &thdId);
+    
+    if(thdHandle == NULL) {
+        CRPG_Utils::DebugMsg("Failed to create new thread.");
+        return 0;
+    }
+    else {
+        CloseHandle(thdHandle);
+    }
+    
+    return 1;
+}
+#else
+unsigned int CRPG_Utils::CreateThread(void*(*func)(void*), void *param) {
+    pthread_t thread;
+    int retval;
+    
+    retval = pthread_create(&thread, NULL, func, (void*)param);
+    
+    if(retval != 0) {
+		CRPG_Utils::DebugMsg("Failed to create new thread.");
+        return 0;
+    }
+    
+    return 1;
+}
+#endif
+
+void CRPG_Utils::Init(void) {
 	saytext = UserMessageIndex("SayText");
 	hinttext = UserMessageIndex("HintText");
 	vguimenu = UserMessageIndex("VGUIMenu");
+
+	return ;
+}
+
+void CRPG_Utils::ShutDown(void) {
+	if(dlog_fptr != NULL) {
+		fclose(dlog_fptr);
+		dlog_fptr = NULL;
+	}
 
 	return ;
 }
