@@ -209,8 +209,7 @@ void CRPG_Menu::SellSelect(unsigned int option) {
 	CRPG_Player *player;
 
 	player = IndextoRPGPlayer(this->index);
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	if(option > ITEM_COUNT) {
 		this->DelMenu();
@@ -294,8 +293,7 @@ void CRPG_Menu::SettingsSelect(unsigned int option) {
 		}
 
 		player = IndextoRPGPlayer(this->index);
-		if(player == NULL)
-			return ;
+		WARN_IF(player == NULL, return)
 
 		player->ResetStats();
 		CRPG::ChatAreaMsg(player->index, MSG_STATS_RESET);
@@ -346,8 +344,7 @@ void CRPG_Menu::GetTop10Page(void) {
 	struct ranklist **ranks;
 
 	CRPG_RankManager::GetTop10Players(&ranks);
-	if(ranks == NULL)
-		return ;
+	WARN_IF(ranks == NULL, return)
 
 	BuildOutput(0, "Top 10 CSS:RPG Players\n-----\n");
 
@@ -497,7 +494,7 @@ void CRPG_Menu::CreateMenu(void) {
 }
 
 void CRPG_Menu::SelectOption(unsigned int option) {
-	CRPG::DebugMsg("%s selected option %d in submenu %d on page %d",
+	CRPG::DebugMsg(1, "%s selected option %d in submenu %d on page %d",
 		this->name(), option, this->submenu, this->page);
 
 	/* Emit menu sound */
@@ -578,15 +575,14 @@ CRPG_Menu* EdicttoRPGMenu(edict_t *e) {
 CRPG_Menu* CRPG_Menu::AddMenu(edict_t *e) {
 	CRPG_Menu *menu;
 
-	if((e == NULL) || !CRPG::IsValidEdict(e))
-		return NULL;
+	WARN_IF((e == NULL) || !CRPG::IsValidEdict(e), return NULL)
 
 	menu = EdicttoRPGMenu(e);
 	if(menu != NULL)
 		menu->DelMenu();
 
 	menu = new_node(e);
-	CRPG::DebugMsg("Player %s created menu", menu->name());
+	CRPG::DebugMsg(1, "Player %s created menu", menu->name());
 
 	return menu;
 }
