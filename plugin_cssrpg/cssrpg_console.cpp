@@ -30,8 +30,9 @@
 #include "cssrpg.h"
 #include "cssrpg_menu.h"
 #include "cssrpg_stats.h"
-#include "cssrpg_console.h"
+#include "cssrpg_commands.h"
 #include "items/rpgi.h"
+#include "cssrpg_console.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -80,6 +81,11 @@ CON_COMMAND(cssrpg_debug_timers, "List all timers") {
 		CRPG::DebugMsg("Timer Executes: %f", timer->next_tm);
 
 	CRPG::DebugMsg("* End of timers list", CRPG::s_globals()->curtime);
+	return ;
+}
+
+CON_COMMAND(cssrpg_debug_teamcount, "Player count for each team") {
+	CRPG::DebugMsg("CT: %d T: %d", CRPG_TeamBalance::teamct_count, CRPG_TeamBalance::teamt_count);
 	return ;
 }
 
