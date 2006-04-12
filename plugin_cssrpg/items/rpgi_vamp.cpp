@@ -62,8 +62,7 @@ void CRPGI_Vamp::add_health(CRPG_Player *player, unsigned int hp) {
 	CRPGI_HBonus *hb;
 	unsigned int new_health;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	hb = IndextoHBonus(player->index);
 	if((unsigned int)player->cbp()->GetHealth() >= hb->health)

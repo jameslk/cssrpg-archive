@@ -75,8 +75,7 @@ void CRPGI_LJump::PlayerJump(int userid) {
 	CRPGI_LJump *jump;
 
 	player = UserIDtoRPGPlayer(userid);
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	jump = new CRPGI_LJump;
 	jump->index = player->index;

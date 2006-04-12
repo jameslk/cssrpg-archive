@@ -120,7 +120,7 @@ unsigned int CRPG_Database::Query(char *queryf, ...) {
 	query = sqlite3_vmprintf(queryf, ap);
 	va_end(ap);
 
-	CRPG::DebugMsg("Query: %s", query);
+	CRPG::DebugMsg(1, "Query: %s", query);
 	retval = sqlite3_exec(db, query, NULL, NULL, &error);
 	sqlite3_free(query);
 
@@ -148,7 +148,7 @@ unsigned int CRPG_Database::Query(struct tbl_result **result, char *queryf, ...)
 	query = sqlite3_vmprintf(queryf, ap);
 	va_end(ap);
 
-	CRPG::DebugMsg("Query: %s", query);
+	CRPG::DebugMsg(1, "Query: %s", query);
 	retval = sqlite3_get_table(db, query, &result_array, &nrow, &ncol, &error);
 	sqlite3_free(query);
 
@@ -198,7 +198,7 @@ unsigned int CRPG_Database::Query(sqlite_callback *func, void *arg, char *queryf
 	query = sqlite3_vmprintf(queryf, ap);
 	va_end(ap);
 
-	CRPG::DebugMsg("Query: %s", query);
+	CRPG::DebugMsg(1, "Query: %s", query);
 	result = sqlite3_exec(db, query, func, arg, &error);
 	sqlite3_free(query);
 

@@ -73,6 +73,8 @@ void CRPGI_HBonus::BuyItem(void *ptr) {
 		return ;
 
 	hb = IndextoHBonus(player->index);
+	WARN_IF(hb == NULL, return)
+
 	hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
 
 	return ;
@@ -86,6 +88,8 @@ void CRPGI_HBonus::SellItem(void *ptr) {
 		return ;
 
 	hb = IndextoHBonus(player->index);
+	WARN_IF(hb == NULL, return)
+
 	hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
 	if(player->cbp()->GetHealth() > (int)hb->health)
 		player->cbp()->SetHealth(hb->health);
@@ -97,8 +101,7 @@ void CRPGI_HBonus::PlayerUpdate(CRPG_Player *player) {
 	CRPGI_HBonus *hb;
 
 	hb = IndextoHBonus(player->index);
-	if(hb == NULL)
-		return ;
+	WARN_IF(hb == NULL, return)
 
 	hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
 	player->cbp()->SetHealth(hb->health);
@@ -135,8 +138,7 @@ void CRPGI_HBonus::DelPlayer(void) {
 void CRPGI_HBonus::SetSpawnHealth(CRPG_Player *player) {
 	CRPGI_HBonus *hb;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	IF_ITEM_NENABLED(ITEM_HBONUS)
 		return ;
@@ -145,8 +147,7 @@ void CRPGI_HBonus::SetSpawnHealth(CRPG_Player *player) {
 		return ;
 
 	hb = IndextoHBonus(player->index);
-	if(hb == NULL)
-		return ;
+	WARN_IF(hb == NULL, return)
 
 	player->cbp()->SetHealth(hb->health);
 

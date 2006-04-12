@@ -311,8 +311,7 @@ void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPC
 
 	#else
 
-	if(CBaseAnimating_Ignite_Addr == NULL)
-		return ;
+	WARN_IF(CBaseAnimating_Ignite_Addr == NULL, return)
 
 	typedef void (*func)(CBaseAnimating*, float, bool, float, bool);
 	func thisfunc = (func)CBaseAnimating_Ignite_Addr;
@@ -333,8 +332,7 @@ void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAn
 
 	#else
 
-	if(CBaseEntity_Teleport_Addr == NULL)
-		return ;
+	WARN_IF(CBaseEntity_Teleport_Addr == NULL, return)
 
 	typedef void (*func)(CBaseEntity*, const Vector*, const QAngle*, const Vector*);
 	func thisfunc = (func)CBaseEntity_Teleport_Addr;
@@ -357,8 +355,7 @@ CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbc
 
 	#else
 
-	if(CBaseCombatCharacter_Weapon_GetSlot_Addr == NULL)
-		return ;
+	WARN_IF(CBaseCombatCharacter_Weapon_GetSlot_Addr == NULL, return)
 
 	typedef CBaseCombatWeapon* (*func)(CBaseCombatCharacter*, int);
 	func thisfunc = (func)CBaseCombatCharacter_Weapon_GetSlot_Addr;
@@ -381,8 +378,7 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 
 	#else
 
-	if(CBaseCombatCharacter_GiveAmmo_Addr == NULL)
-		return ;
+	WARN_IF(CBaseCombatCharacter_GiveAmmo_Addr == NULL, return)
 
 	typedef int (*func)(CBaseCombatCharacter*, int, int, bool);
 	func thisfunc = (func)CBaseCombatCharacter_GiveAmmo_Addr;
@@ -403,8 +399,7 @@ void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t mov
 
 	#else
 
-	if(CBaseEntity_SetMoveType_Addr == NULL)
-		return ;
+	WARN_IF(CBaseEntity_SetMoveType_Addr == NULL, return)
 
 	typedef void (*func)(CBaseEntity*, MoveType_t val, MoveCollide_t moveCollide);
 	func thisfunc = (func)CBaseEntity_SetMoveType_Addr;
