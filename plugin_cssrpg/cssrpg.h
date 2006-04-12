@@ -41,6 +41,8 @@ struct item_type {
 	char name[16];
 	char shortname[8];
 
+	unsigned int index;
+
 	char enable;
 	unsigned int maxlevel;
 	unsigned int maxlevelbarrier; /* The enforced maximum level */
@@ -165,7 +167,7 @@ public:
 	unsigned int DelPlayer(void);
 
 	void InsertPlayer(void);
-	void LoadData(void);
+	void LoadData(char init = 0);
 	void SaveData(void);
 
 	void AddLevel(unsigned int level) {
