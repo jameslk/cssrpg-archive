@@ -307,6 +307,8 @@ void CPluginCSSRPG::Unload(void) {
 	CRPG_Timer::FreeMemory();
 	CRPG::ShutDown();
 	CRPG::DebugMsg("Shut down complete.");
+	CRPG_Utils::ShutDown();
+
 	return ;
 }
 
@@ -363,6 +365,15 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	}
 	if(!esounds->IsSoundPrecached("buttons/blip2.wav")) {
 		esounds->PrecacheSound("buttons/blip2.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet1.wav")) {
+		esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet2.wav")) {
+		esounds->PrecacheSound("physics/glass/glass_impact_bullet2.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet3.wav")) {
+		esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
 	}
 
 	CRPG_Utils::Init();
@@ -554,15 +565,13 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 
 			if(engine->Cmd_Argc() < 2) {
 				player = EdicttoRPGPlayer(pEntity);
-				if(player == NULL)
-					return PLUGIN_STOP;
+				WARN_IF(player == NULL, return PLUGIN_STOP)
 
 				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
 			}
 			else {
 				player = IndextoRPGPlayer(CRPG::FindPlayer(engine->Cmd_Argv(1)));
-				if(player == NULL)
-					return PLUGIN_STOP;
+				WARN_IF(player == NULL, return PLUGIN_STOP)
 
 				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
 			}
@@ -605,8 +614,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		int dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
 		const char *weapon = event->GetString("weapon");
 
-		if(attacker == NULL || victim == NULL)
-			return ;
+		WARN_IF((attacker == NULL) || (victim == NULL), return)
 
 		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
@@ -620,8 +628,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	}
 	else if(FStrEq(name, "player_spawn")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
-		if(player == NULL)
-			return ;
+		WARN_IF(player == NULL, return)
 
 		player->css.isdead = 0;
 
@@ -630,8 +637,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	}
 	else if(FStrEq(name, "player_death")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
-		if(player == NULL)
-			return ;
+		WARN_IF(player == NULL, return)
 
 		player->css.isdead = 1;
 		CRPG_StatsManager::PlayerKill(event->GetInt("attacker"), player->userid, event->GetBool("headshot"));
@@ -670,8 +676,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			text += 7;
 			if(!*text) {
 				player = UserIDtoRPGPlayer(userid);
-				if(player == NULL)
-					return ;
+				WARN_IF(player == NULL, return)
 
 				CRPG_RankManager::ChatAreaRank(player);
 			}
@@ -683,8 +688,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 					}
 					else {
 						player = IndextoRPGPlayer(CRPG::FindPlayer((char*)text));
-						if(player == NULL)
-							return ;
+						WARN_IF(player == NULL, return)
 
 						CRPG_RankManager::ChatAreaRank(player);
 					}
@@ -706,6 +710,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	}
 	else if(FStrEq(name, "round_end")) {
 		CRPG_StatsManager::WinningTeam(event->GetInt("winner"), event->GetInt("reason"));
+		CRPG_TeamBalance::RoundEnd();
 	}
 	else if(FStrEq(name, "bomb_planted")) {
 		CRPG_StatsManager::BombPlanted(event->GetInt("userid"));
@@ -726,20 +731,38 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
 		int team;
 
-		if(player == NULL)
+		if(player == NULL) /* don't warn */
 			return ;
 
-		if((player->level <= 1) && (player->css.team == team_none))
+		if(CRPG_GlobalSettings::enable && (player->level <= 1) && (player->css.team == team_none))
 			CRPG::ShowMOTD(player->index, "CSS:RPG Disclaimer", "http://cssrpg.sourceforge.net/help/disclaimer.html", motd_url);
 
 		team = event->GetInt("team");
 
-		if(team == 2)
+		if(team == 2) {
+			CRPG_TeamBalance::teamt_count++;
+			if(player->css.team == team_ct) /* previous team */
+				CRPG_TeamBalance::teamct_count--;
+
 			player->css.team = team_t;
-		else if(team == 3)
+		}
+		else if(team == 3) {
+			CRPG_TeamBalance::teamct_count++;
+			if(player->css.team == team_t) /* previous team */
+				CRPG_TeamBalance::teamt_count--;
+
 			player->css.team = team_ct;
-		else
+		}
+		else {
+			if(player->css.team == team_t)
+				CRPG_TeamBalance::teamt_count--;
+			else if(player->css.team == team_t)
+				CRPG_TeamBalance::teamct_count--;
+
 			player->css.team = team_none;
+		}
+
+		CRPG_TeamBalance::roundend_check = 1;
 	}
 	else {
 		CRPG::DebugMsg("Warning: Event \"%s\" was not used", name);
