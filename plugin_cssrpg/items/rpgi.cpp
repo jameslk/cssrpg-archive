@@ -46,6 +46,7 @@ void CRPGI::Init(void) {
 	CRPGI_Regen::Init();
 	CRPGI_Resup::Init();
 	CRPGI_Stealth::Init();
+	CRPGI_IceStab::Init();
 
 	return ;
 }
@@ -56,7 +57,6 @@ void CRPGI::ShutDown(void) {
 	CRPGI_Resup::ShutDown();
 	CRPGI_LJump::ShutDown();
 	CRPGI_Stealth::ShutDown();
-	CRPGI_IceStab::ShutDown();
 
 	return ;
 }
@@ -108,8 +108,7 @@ VAR_FUNC(CRPGI::CVARItemMaxLvl) {
 }
 
 void CRPGI::PlayerUpdate(CRPG_Player *player) {
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	CRPGI_HBonus::PlayerUpdate(player);
 
