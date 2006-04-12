@@ -74,6 +74,7 @@ void CRPGI_IceStab::SellItem(void *ptr) {
 void CRPGI_IceStab::GameFrame(void) {
 	register CRPG_Player *v_player;
 	register CRPGI_IceStab *stab, *next;
+	register float now = CRPG::s_globals()->curtime;
 
 	if(!ll_count)
 		return ;
@@ -82,9 +83,14 @@ void CRPGI_IceStab::GameFrame(void) {
 		next = stab->ll_next;
 		v_player = IndextoRPGPlayer(stab->v_index);
 		if(v_player != NULL) {
-			if((stab->duration > 0) && (stab->duration < CRPG::s_globals()->curtime)) {
+			if((stab->duration > 0) && (stab->duration < now)) {
 				CBaseEntity_SetMoveType((CBaseEntity*)v_player->cbp(), MOVETYPE_WALK, MOVECOLLIDE_DEFAULT);
+				engine->ClientCommand(v_player->e(), "exec cssrpg_config.cfg\n"); /* Set sensitivity back */
 				stab->duration = 0;
+			}
+			else if(stab->duration && (now >= stab->scheck_time)) {
+				engine->ClientCommand(v_player->e(), "sensitivity %f\n", ICESTAB_SENSITIVITY);
+				stab->scheck_time = now+0.5;
 			}
 
 			if(stab->fade < 255) {
@@ -134,12 +140,32 @@ void CRPGI_IceStab::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int
 		stab = new CRPGI_IceStab;
 		stab->v_index = victim->index;
 		stab->ll_add();
+
+		/* make sure the old sensitivity isn't overwritten */
+		engine->ClientCommand(victim->e(), "host_writeconfig cssrpg_config.cfg\n");
 	}
 
 	stab->duration = CRPG::s_globals()->curtime+(ICESTAB_INC*attacker->items[ITEM_ICESTAB].level);
 	stab->fade = 0;
 
 	CBaseEntity_SetMoveType((CBaseEntity*)victim->cbp(), MOVETYPE_NONE, MOVECOLLIDE_DEFAULT);
+	engine->ClientCommand(victim->e(), "sensitivity %f\n", ICESTAB_SENSITIVITY);
+	stab->scheck_time = CRPG::s_globals()->curtime+0.5;
+
+	switch(rand()%3) {
+		case 0:
+			CRPG::EmitSound(0, "physics/glass/glass_impact_bullet1.wav", 1.0, victim);
+			break;
+
+		case 1:
+			CRPG::EmitSound(0, "physics/glass/glass_impact_bullet2.wav", 1.0, victim);
+			break;
+
+		case 2:
+			CRPG::EmitSound(0, "physics/glass/glass_impact_bullet3.wav", 1.0, victim);
+			break;
+	}
+
 	victim->cbp()->SetRenderMode(kRenderTransColor);
 	victim->cbp()->SetRenderColor(0, 0, 255);
 
