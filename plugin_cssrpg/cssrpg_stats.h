@@ -60,4 +60,20 @@ public:
 	static void ChatAreaRank(CRPG_Player *player, int sendto = -1);
 };
 
+class CRPG_TeamBalance: private CRPG_GlobalSettings {
+	static unsigned int teamt_total;
+	static unsigned int teamct_total;
+
+	static void recalc_teams(void);
+	static CRPG_Player* find_lvl(unsigned int lvl, enum cssteam_t team);
+
+public:
+	static unsigned int teamt_count;
+	static unsigned int teamct_count;
+
+	static char roundend_check;
+
+	static void RoundEnd(void);
+};
+
 #endif
