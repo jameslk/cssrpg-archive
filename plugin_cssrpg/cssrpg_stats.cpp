@@ -74,25 +74,15 @@ unsigned int CRPG_StatsManager::calc_lvl_inc(unsigned int lvl, unsigned int exp)
 }
 
 float CRPG_StatsManager::team_ratio(enum cssteam_t numerator) {
-	unsigned int i = CRPG_Player::player_count;
-	float teamratio, ct_count = 0.0, t_count = 0.0;
+	float teamratio;
 
 	if(numerator == team_none)
 		return 0.0;
 
-	while(i--) {
-		if(CRPG_Player::players[i] != NULL) {
-			if(CRPG_Player::players[i]->css.team == team_ct)
-				ct_count++;
-			else if(CRPG_Player::players[i]->css.team == team_t)
-				t_count++;
-		}
-	}
-
 	if(numerator == team_t)
-		teamratio = t_count/ct_count;
+		teamratio = (float)CRPG_TeamBalance::teamt_count/(float)CRPG_TeamBalance::teamct_count;
 	else
-		teamratio = ct_count/t_count;
+		teamratio = (float)CRPG_TeamBalance::teamct_count/(float)CRPG_TeamBalance::teamt_count;
 
 	return teamratio;
 }
@@ -107,7 +97,7 @@ void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc
 	player->exp = 0;
 	player->credits += lvl_inc*credits_inc;
 
-	CRPG::DebugMsg("%s is now level %d (%d level increase(s))", player->name(), player->level, lvl_inc);
+	CRPG::DebugMsg(1, "%s is now level %d (%d level increase(s))", player->name(), player->level, lvl_inc);
 
 	if(announce_newlvl)
 		CRPG::ChatAreaMsg(0, "%s is now Level %d", player->name(), player->level);
@@ -133,8 +123,7 @@ void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc
 void CRPG_StatsManager::add_exp(CRPG_Player *player, unsigned long exp, char hidenotice) {
 	unsigned int exp_req;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	IF_BOT_NENABLED(player)
 		return ;
@@ -186,8 +175,7 @@ void CRPG_StatsManager::PlayerKill(int attacker, int victim, bool headshot) {
 	a_player = UserIDtoRPGPlayer(attacker);
 	v_player = UserIDtoRPGPlayer(victim);
 
-	if(a_player == NULL || v_player == NULL)
-		return ;
+	WARN_IF((a_player == NULL || v_player == NULL), return)
 
 	if(a_player->css.team == v_player->css.team)
 		return ;
@@ -207,8 +195,7 @@ void CRPG_StatsManager::BombPlanted(int userid) {
 	if(!enable)
 		return ;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	if(player->css.team == team_none)
 		return ;
@@ -226,8 +213,7 @@ void CRPG_StatsManager::BombDefused(int userid) {
 	if(!enable)
 		return ;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	if(player->css.team == team_none)
 		return ;
@@ -245,8 +231,7 @@ void CRPG_StatsManager::BombExploded(int userid) {
 	if(!enable)
 		return ;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	if(player->css.team == team_none)
 		return ;
@@ -264,8 +249,7 @@ void CRPG_StatsManager::HostageRescued(int userid) {
 	if(!enable)
 		return ;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	if(player->css.team == team_none)
 		return ;
@@ -283,8 +267,7 @@ void CRPG_StatsManager::VipEscaped(int userid) {
 	if(!enable)
 		return ;
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	if(player->css.team == team_none)
 		return ;
@@ -357,8 +340,7 @@ unsigned int CRPG_RankManager::GetPlayerRank(CRPG_Player *player) {
 	struct tbl_result *result;
 	int retval, rank;
 
-	if(player == NULL)
-		return 0;
+	WARN_IF(player == NULL, return 0)
 
 	retval = CRPG::db->Query(&result, "SELECT COUNT(*) AS c FROM %s WHERE level > '%d' OR (level == '%d' AND exp > '%d')",
 		TBL_PLAYERS, player->level, player->level, player->exp);
@@ -408,10 +390,7 @@ void CRPG_RankManager::GetTop10Players(struct ranklist ***ranks) {
 	}
 
 	*ranks = (struct ranklist**)malloc(10*sizeof(struct ranklist*));
-	if(*ranks == NULL) {
-		FreeResult(result);
-		return ;
-	}
+	WARN_IF(*ranks == NULL, FreeResult(result); return)
 
 	for(i = 0;i < 10;i++)
 		(*ranks)[i] = (struct ranklist*)malloc(sizeof(struct ranklist));
@@ -441,8 +420,7 @@ void CRPG_RankManager::FreeRanksList(struct ranklist **ranks) {
 void CRPG_RankManager::ChatAreaRank(CRPG_Player *player, int sendto) {
 	char msg[1024];
 
-	if(player == NULL)
-		return ;
+	WARN_IF(player == NULL, return)
 
 	Q_snprintf(msg, 1024, "%s is Level %ld, ranked %ld/%ld with %ld/%ld Experience and %ld Credits",
 		player->name(), player->level, CRPG_RankManager::GetPlayerRank(player), CRPG_RankManager::GetRankCount(),
@@ -454,4 +432,59 @@ void CRPG_RankManager::ChatAreaRank(CRPG_Player *player, int sendto) {
 		CRPG::ChatAreaMsg(sendto, msg);
 
 	return ;
+}
+
+/*	//////////////////////////////////////
+	CRPG_TeamBalance
+	////////////////////////////////////// */
+unsigned int CRPG_TeamBalance::teamt_total = 0;
+unsigned int CRPG_TeamBalance::teamct_total = 0;
+unsigned int CRPG_TeamBalance::teamt_count = 0;
+unsigned int CRPG_TeamBalance::teamct_count = 0;
+char CRPG_TeamBalance::roundend_check = 0;
+
+void CRPG_TeamBalance::recalc_teams(void) {
+	unsigned int i = CRPG_Player::player_count;
+	CRPG_Player *player;
+
+	while(i--) {
+		player = CRPG_Player::players[i];
+		if(player != NULL) {
+			if(player->css.team == team_t)
+				teamt_total += player->level;
+			else if(player->css.team == team_ct)
+				teamct_total += player->level;
+		}
+	}
+
+	return ;
+}
+
+CRPG_Player* CRPG_TeamBalance::find_lvl(unsigned int lvl, enum cssteam_t team) {
+	/*unsigned int i = CRPG_Player::player_count, candlvl = 0;
+	int candidate;
+	CRPG_Player *player;
+
+	while(i--) {
+		player = CRPG_Player::players[i];
+		if(player != NULL) {
+			if((player->css.team == team) && (player->level) */
+
+	return NULL;
+}
+
+void CRPG_TeamBalance::RoundEnd(void) {
+	int lvldiff;
+
+	if(roundend_check)
+		roundend_check = 0;
+	else
+		return ;
+
+	recalc_teams();
+
+	if(!enable || !teamt_total || !teamct_total || (teamt_total == teamct_total))
+		return ;
+
+	lvldiff = abs(teamt_total-teamct_total);
 }
