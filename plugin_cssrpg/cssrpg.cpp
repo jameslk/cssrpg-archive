@@ -73,6 +73,10 @@ void CRPG::ShutDown(void) {
 }
 
 void CRPG::init_item_types(void) {
+	int i = ITEM_COUNT;
+	while(i--)
+		item_types[i].index = i;
+
 	/* Regen */
 	strcpy(item_types[ITEM_REGEN].name, "Regeneration");
 	strcpy(item_types[ITEM_REGEN].shortname, "regen");
@@ -198,7 +202,9 @@ void CRPG::DatabaseMaid(void) {
 	if(!save_data)
 		return ;
 
-	db->Query("DELETE FROM %s WHERE level <= '1'", TBL_PLAYERS);
+	/* Delete players who are Level 1 and haven't played for 3 days */
+	db->Query("DELETE FROM %s WHERE level <= '1' AND lastseen <= '%d'", TBL_PLAYERS, time(NULL)-259200);
+
 	if(player_expire) {
 		query_ok = db->Query(&result, "SELECT items_id FROM %s WHERE lastseen <= '%d'", TBL_PLAYERS,
 			time(NULL)-(86400*CRPG_GlobalSettings::player_expire));
@@ -333,21 +339,20 @@ CRPG_Player* CRPG_Player::AddPlayer(edict_t *e) {
 	unsigned int i, maxlevel;
 
 	player = new_node(e);
-	if(player == NULL)
-		return NULL;
+	WARN_IF(player == NULL, return NULL)
 
-	CRPG::DebugMsg("New Player: %s Index: %d UserID: %d SteamID: %s",
+	CRPG::DebugMsg(1, "New Player: %s Index: %d UserID: %d SteamID: %s",
 		player->name(), player->index, player->userid, player->steamid());
 
 	player->credits = credits_start;
-	player->LoadData();
+	player->LoadData(1);
 
 	for(i = 0;i < ITEM_COUNT;i++) {
 		maxlevel = CRPG::item_types[i].maxlevel;
 		while(player->items[i].level > maxlevel) {
 			/* Give player their credit's back */
-			player->credits += CRPGI::GetItemCost(i, player->items[i].level);
-			player->TakeItem(i);
+			/* TakeItem isn't necessary since the player hasn't even been completely added yet */
+			player->credits += CRPGI::GetItemCost(i, player->items[i].level--);
 		}
 	}
 
@@ -355,6 +360,11 @@ CRPG_Player* CRPG_Player::AddPlayer(edict_t *e) {
 }
 
 unsigned int CRPG_Player::DelPlayer(void) {
+	if(this->css.team == team_t)
+		CRPG_TeamBalance::teamt_count--;
+	else if(this->css.team == team_ct)
+		CRPG_TeamBalance::teamct_count--;
+
 	this->SaveData();
 	return del_node(this);
 }
@@ -394,7 +404,7 @@ void CRPG_Player::InsertPlayer(void) {
 	return ;
 }
 
-void CRPG_Player::LoadData(void) {
+void CRPG_Player::LoadData(char init) {
 	unsigned int retval, i;
 	struct tbl_result *result;
 
@@ -454,7 +464,8 @@ void CRPG_Player::LoadData(void) {
 	for(i = 0;i < ITEM_COUNT;i++)
 		this->items[i].level = atoi(GetCell(result, CRPG::item_types[i].shortname));
 
-	CRPGI::PlayerUpdate(this);
+	if(!init)
+		CRPGI::PlayerUpdate(this);
 
 	FreeResult(result);
 	return ;
@@ -523,8 +534,7 @@ void CRPG_Player::ResetStats(void) {
 }
 
 unsigned int CRPG_Player::GiveItem(unsigned int item_index) {
-	if(item_index > ITEM_COUNT)
-		return 0;
+	WARN_IF(item_index >= ITEM_COUNT, return 0)
 
 	if(this->items[item_index].level >= CRPG::item_types[item_index].maxlevel)
 		return 0;
@@ -537,8 +547,7 @@ unsigned int CRPG_Player::GiveItem(unsigned int item_index) {
 }
 
 unsigned int CRPG_Player::TakeItem(unsigned int item_index) {
-	if(item_index > ITEM_COUNT)
-		return 0;
+	WARN_IF(item_index >= ITEM_COUNT, return 0)
 
 	if(this->items[item_index].level <= 0)
 		return 0;
@@ -553,8 +562,7 @@ unsigned int CRPG_Player::TakeItem(unsigned int item_index) {
 unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 	unsigned int cost;
 
-	if(item_index > ITEM_COUNT)
-		return 0;
+	WARN_IF(item_index >= ITEM_COUNT, return 0)
 
 	if(this->items[item_index].level >= CRPG::item_types[item_index].maxlevel)
 		return 0;
@@ -564,7 +572,7 @@ unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 	if(cost > this->credits)
 		return 0;
 
-	CRPG::DebugMsg("%s bought item %s Lvl %d",
+	CRPG::DebugMsg(1, "%s bought item %s Lvl %d",
 		this->name(), CRPG::item_types[item_index].name, this->items[item_index].level);
 
 	if(!this->GiveItem(item_index))
@@ -576,13 +584,12 @@ unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 }
 
 unsigned int CRPG_Player::SellItem(unsigned int item_index) {
-	if(item_index > ITEM_COUNT)
-		return 0;
+	WARN_IF(item_index >= ITEM_COUNT, return 0)
 
 	if(this->items[item_index].level <= 0)
 		return 0;
 
-	CRPG::DebugMsg("%s sold item %s Lvl %d",
+	CRPG::DebugMsg(1, "%s sold item %s Lvl %d",
 		this->name(), CRPG::item_types[item_index].name, this->items[item_index].level+1);
 
 	if(!this->TakeItem(item_index))
