@@ -34,8 +34,10 @@
 #define ITEM_LJUMP		5
 #define ITEM_FNADE		6
 #define ITEM_ICESTAB	7
+#define ITEM_FPISTOL	8
+#define ITEM_DENIAL		9
 
-#define ITEM_COUNT		8
+#define ITEM_COUNT		10 /* Last item+1 */
 
 struct item_type {
 	char name[16];

@@ -397,7 +397,19 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("icestab_enable", "1", "Sets the IceStab item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("icestab_maxlevel", "3", "IceStab item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("icestab_cost", "20", "IceStab item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("icestab_icost", "10", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("icestab_icost", "15", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
+
+	type = &CRPG::item_types[ITEM_FPISTOL];
+	CRPG_Setting::CreateVar("fpistol_enable", "1", "Sets the FrostPistol item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("fpistol_maxlevel", "5", "FrostPistol item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
+	CRPG_Setting::CreateVar("fpistol_cost", "20", "FrostPistol item start cost", var_uint, &type->start_cost);
+	CRPG_Setting::CreateVar("fpistol_icost", "15", "FrostPistol item cost increment for each level", var_uint, &type->inc_cost);
+
+	type = &CRPG::item_types[ITEM_DENIAL];
+	CRPG_Setting::CreateVar("denial_enable", "1", "Sets the Denial item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("denial_maxlevel", "3", "Denial item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
+	CRPG_Setting::CreateVar("denial_cost", "20", "Denial item start cost", var_uint, &type->start_cost);
+	CRPG_Setting::CreateVar("denial_icost", "15", "Denial item cost increment for each level", var_uint, &type->inc_cost);
 
 	CRPG_Setting::CreateVar("exp_notice", "1", "Sets notifications to players when they gain Experience", var_bool, &exp_notice);
 	CRPG_Setting::CreateVar("exp_max", "50000", "Maximum experience that will ever be required", var_uint, &exp_max);

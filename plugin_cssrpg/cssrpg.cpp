@@ -47,6 +47,8 @@
 #include "items/rpgi_ljump.h"
 #include "items/rpgi_fnade.h"
 #include "items/rpgi_icestab.h"
+#include "items/rpgi_fpistol.h"
+#include "items/rpgi_denial.h"
 
 #include "cssrpg.h"
 
@@ -80,7 +82,7 @@ void CRPG::init_item_types(void) {
 	/* Regen */
 	strcpy(item_types[ITEM_REGEN].name, "Regeneration");
 	strcpy(item_types[ITEM_REGEN].shortname, "regen");
-	item_types[ITEM_REGEN].maxlevelbarrier = 10;
+	item_types[ITEM_REGEN].maxlevelbarrier = 15;
 	item_types[ITEM_REGEN].buy_item = CRPGI_Regen::BuyItem;
 	item_types[ITEM_REGEN].sell_item = CRPGI_Regen::SellItem;
 
@@ -94,14 +96,14 @@ void CRPG::init_item_types(void) {
 	/* Resup */
 	strcpy(item_types[ITEM_RESUP].name, "Resupply");
 	strcpy(item_types[ITEM_RESUP].shortname, "resup");
-	item_types[ITEM_RESUP].maxlevelbarrier = 10;
+	item_types[ITEM_RESUP].maxlevelbarrier = 20;
 	item_types[ITEM_RESUP].buy_item = CRPGI_Resup::BuyItem;
 	item_types[ITEM_RESUP].sell_item = CRPGI_Resup::SellItem;
 
 	/* Vamp */
 	strcpy(item_types[ITEM_VAMP].name, "Vampire");
 	strcpy(item_types[ITEM_VAMP].shortname, "vamp");
-	item_types[ITEM_VAMP].maxlevelbarrier = 10;
+	item_types[ITEM_VAMP].maxlevelbarrier = 15;
 	item_types[ITEM_VAMP].buy_item = CRPGI_Vamp::BuyItem;
 	item_types[ITEM_VAMP].sell_item = CRPGI_Vamp::SellItem;
 
@@ -115,23 +117,37 @@ void CRPG::init_item_types(void) {
 	/* LJump */
 	strcpy(item_types[ITEM_LJUMP].name, "LongJump");
 	strcpy(item_types[ITEM_LJUMP].shortname, "ljump");
-	item_types[ITEM_LJUMP].maxlevelbarrier = 6;
+	item_types[ITEM_LJUMP].maxlevelbarrier = 10;
 	item_types[ITEM_LJUMP].buy_item = CRPGI_LJump::BuyItem;
 	item_types[ITEM_LJUMP].sell_item = CRPGI_LJump::SellItem;
 
 	/* FNade */
 	strcpy(item_types[ITEM_FNADE].name, "FireGrenade");
 	strcpy(item_types[ITEM_FNADE].shortname, "fnade");
-	item_types[ITEM_FNADE].maxlevelbarrier = 6;
+	item_types[ITEM_FNADE].maxlevelbarrier = 10;
 	item_types[ITEM_FNADE].buy_item = CRPGI_FNade::BuyItem;
 	item_types[ITEM_FNADE].sell_item = CRPGI_FNade::SellItem;
 
 	/* IceStab */
 	strcpy(item_types[ITEM_ICESTAB].name, "IceStab");
 	strcpy(item_types[ITEM_ICESTAB].shortname, "icestab");
-	item_types[ITEM_ICESTAB].maxlevelbarrier = 5;
+	item_types[ITEM_ICESTAB].maxlevelbarrier = 10;
 	item_types[ITEM_ICESTAB].buy_item = CRPGI_IceStab::BuyItem;
 	item_types[ITEM_ICESTAB].sell_item = CRPGI_IceStab::SellItem;
+
+	/* FPistol */
+	strcpy(item_types[ITEM_FPISTOL].name, "FrostPistol");
+	strcpy(item_types[ITEM_FPISTOL].shortname, "fpistol");
+	item_types[ITEM_FPISTOL].maxlevelbarrier = 15;
+	item_types[ITEM_FPISTOL].buy_item = CRPGI_FPistol::BuyItem;
+	item_types[ITEM_FPISTOL].sell_item = CRPGI_FPistol::SellItem;
+
+	/* Denial */
+	strcpy(item_types[ITEM_DENIAL].name, "Denial");
+	strcpy(item_types[ITEM_DENIAL].shortname, "denial");
+	item_types[ITEM_DENIAL].maxlevelbarrier = 3;
+	item_types[ITEM_DENIAL].buy_item = CRPGI_Denial::BuyItem;
+	item_types[ITEM_DENIAL].sell_item = CRPGI_Denial::SellItem;
 
 	return ;
 }
