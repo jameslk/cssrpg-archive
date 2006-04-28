@@ -349,6 +349,25 @@ RPG_CMD(giveupgrade, "Give a player an Upgrade (increment)", 2, "<player name | 
 	return 1;
 }
 
+RPG_CMD(giveall, "Give a player all the Upgrades available", 1, "<player name | userid | steamid>") {
+	CRPG_Player *player;
+	unsigned int i = ITEM_COUNT;
+
+	GET_PLAYER_OR_RETURN(argv[0], player)
+
+	while(i--) {
+		if(CRPG::item_types[i].enable) {
+			player->items[i].level = CRPG::item_types[i].maxlevel;
+			CRPG::item_types[i].buy_item((void*)player);
+			CRPGI::PlayerUpdate(player);
+		}
+	}
+
+	CRPG::ConsoleMsg("%s now has all Upgrades", thiscmd, player->name());
+
+	return 1;
+}
+
 RPG_CMD(takeupgrade, "Take an Upgrade from a player (decrement)", 2, "<player name | userid | steamid> <upgrade>") {
 	CRPG_Player *player;
 	struct item_type *item = NULL;
