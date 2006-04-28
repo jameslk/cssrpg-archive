@@ -82,5 +82,6 @@ void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAn
 CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbcc, int slot);
 int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound = 0);
 void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide);
+CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, int iSubType = 0);
 
 #endif

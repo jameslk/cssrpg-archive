@@ -164,6 +164,7 @@ CRPG_SigScan CBaseEntity_Teleport_Sig;
 CRPG_SigScan CBaseCombatCharacter_Weapon_GetSlot_Sig;
 CRPG_SigScan CBaseCombatCharacter_GiveAmmo_Sig;
 CRPG_SigScan CBaseEntity_SetMoveType_Sig;
+CRPG_SigScan CBasePlayer_GiveNamedItem_Sig;
 
 void init_sigs(void) {
 	CRPG_SigScan::GetDllMemInfo();
@@ -231,6 +232,16 @@ CBaseEntity_SetMoveType_Sig.Init("CBaseEntity::SetMoveType",
 "xxxxxxxxxxxxx??xxxxxxxxxx",
 25);
 
+	/* CBaseEntity* CBasePlayer::GiveNamedItem(const char *pszName, int iSubType);
+	Last Address: 221FD7B0
+	Signature: 53 8B 5C 24 0C 55 56 8B 74 24 10 53 56 8B E9 E8? 6C? 89? EC? FF? 85 C0 74? 08?
+	5E 5D 33 C0 5B C2 08 00 */
+CBasePlayer_GiveNamedItem_Sig.Init("CBasePlayer::GiveNamedItem",
+(unsigned char*)"\x53\x8B\x5C\x24\x0C\x55\x56\x8B\x74\x24\x10\x53\x56\x8B\xE9\xE8\x6C\x89\xEC\xFF\
+\x85\xC0\x74\x08\x5E\x5D\x33\xC0\x5B\xC2\x08\x00",
+"xxxxxxxxxxxxxxx?????xx??xxxxxxxx",
+32);
+
 	return ;
 }
 #endif /* if WIN32 */
@@ -244,6 +255,7 @@ void *CBaseEntity_Teleport_Addr;
 void *CBaseCombatCharacter_Weapon_GetSlot_Addr;
 void *CBaseCombatCharacter_GiveAmmo_Addr;
 void *CBaseEntity_SetMoveType_Addr;
+void *CBasePlayer_GiveNamedItem_Addr;
 
 void* find_sym_addr(void *dl_handle, char *name, char *symbol) {
 	void *addr;
@@ -291,6 +303,9 @@ void init_lsym_funcs(void) {
 
 	CBaseEntity_SetMoveType_Addr = find_sym_addr(handle,
 		"CBaseEntity::SetMoveType", "_ZN11CBaseEntity11SetMoveTypeE10MoveType_t13MoveCollide_t");
+
+	CBasePlayer_GiveNamedItem_Addr = find_sym_addr(handle,
+		"CBasePlayer::GiveNamedItem", "_ZN11CBasePlayer13GiveNamedItemEPKci");
 
 	dlclose(handle);
 	return ;
@@ -407,4 +422,27 @@ void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t mov
 	#endif
 
 	return ;
+}
+
+CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, int iSubType) {
+	CBaseEntity *ret;
+
+	#ifdef WIN32
+	if(!CBasePlayer_GiveNamedItem_Sig.is_set)
+		return NULL;
+
+	typedef CBaseEntity* (__fastcall *func)(CBasePlayer*, void*, const char*, int);
+	func thisfunc = (func)CBasePlayer_GiveNamedItem_Sig.sig_addr;
+	ret = thisfunc(cbp, 0, pszName, iSubType);
+
+	#else
+
+	WARN_IF(CBasePlayer_GiveNamedItem_Addr == NULL, return)
+
+	typedef CBaseEntity* (*func)(CBasePlayer*, const char*, int);
+	func thisfunc = (func)CBasePlayer_GiveNamedItem_Addr;
+	ret = thisfunc(cbp, pszName, iSubType);
+	#endif
+
+	return ret;
 }
