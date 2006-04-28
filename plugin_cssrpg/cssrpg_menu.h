@@ -36,9 +36,9 @@ class CRPG_Menu: public CRPG_PlayerClass<CRPG_Menu>, private CRPG_GlobalSettings
 	/* Private Functions */
 	void GetUpgradesPage(void);
 	void UpgradesSelect(unsigned int option);
-	void GetStatsPage(void);
 	void GetSellPage(void);
 	void SellSelect(unsigned int option);
+	void GetStatsPage(void);
 	void GetSettingsPage(void);
 	void SettingsSelect(unsigned int option);
 	void GetHelpPage(void);
