@@ -52,6 +52,7 @@ extern IEngineSound *esounds;
 extern IFileSystem *filesystem;
 extern IServerGameDLL *gamedll;
 extern IServerPluginHelpers *helpers;
+extern ICvar *cvar;
 
 /*	//////////////////////////////////////
 	CRPG_Utils Class
@@ -365,6 +366,31 @@ void CRPG_Utils::ShowMOTD(int index, char *title, char *msg, motd_type type, cha
 	}
 
 	engine->MessageEnd();
+	return ;
+}
+
+void CRPG_Utils::SetCheats(char enable, char temporary) {
+	static ConVar *cheats_cvar = (ConVar*)2;
+	static char already_set = 0;
+
+	if(cheats_cvar == (ConVar*)2)
+		cheats_cvar = cvar->FindVar("sv_cheats");
+
+	WARN_IF(cheats_cvar == NULL, return)
+
+	if(enable) {
+		already_set = (char)cheats_cvar->GetBool();
+		cheats_cvar->m_nFlags &= ~FCVAR_NOTIFY;
+		cheats_cvar->SetValue(1);
+	}
+	else {
+		if(!temporary || !already_set) {
+			cheats_cvar->SetValue(0);
+			already_set = 0;
+		}
+		cheats_cvar->m_nFlags &= ~FCVAR_NOTIFY;
+	}
+
 	return ;
 }
 

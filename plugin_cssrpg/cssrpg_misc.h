@@ -80,6 +80,7 @@ public:
 	static void HintTextMsg(int index, char *msgf, ...);
 	static void EmitSound(int index, char *sound_path, float vol = 0.7, CRPG_Player *follow = NULL);
 	static void ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd = NULL);
+	static void SetCheats(char enable, char temporary = 1);
 
 	static void ConsoleMsg(char *msgf, char *msg_type, ...);
 	static void DebugMsg(char *msg, ...);
