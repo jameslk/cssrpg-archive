@@ -23,7 +23,7 @@
 #define ICESTAB_CLRFADE 1 /* Blue color fade amount for each frame */
 
 /* Sensitivity for players who are frozen */
-#define ICESTAB_SENSITIVITY 0.5
+#define ICESTAB_SENSITIVITY 0.7
 
 #include "../cssrpg_misc.h"
 class CRPGI_IceStab: public CRPG_LinkedList<CRPGI_IceStab> {
