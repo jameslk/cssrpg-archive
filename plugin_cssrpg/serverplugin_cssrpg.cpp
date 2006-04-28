@@ -112,6 +112,8 @@
 #include "items/rpgi_ljump.h"
 #include "items/rpgi_fnade.h"
 #include "items/rpgi_icestab.h"
+#include "items/rpgi_denial.h"
+#include "items/rpgi_fpistol.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -341,6 +343,7 @@ const char *CPluginCSSRPG::GetPluginDescription(void) {
 void CPluginCSSRPG::LevelInit(char const *pMapName) {
 	gameeventmanager->AddListener(this, "player_hurt", true);
 	gameeventmanager->AddListener(this, "player_jump", true);
+	gameeventmanager->AddListener(this, "item_pickup", true);
 	gameeventmanager->AddListener(this, "player_spawn", true);
 	gameeventmanager->AddListener(this, "player_death", true);
 	gameeventmanager->AddListener(this, "player_say", true);
@@ -402,6 +405,7 @@ void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPG_Player::AutoSave();
 	CRPGI_LJump::CheckAll();
 	CRPGI_IceStab::GameFrame();
+	CRPGI_FPistol::GameFrame();
 
 	return ;
 }
@@ -571,7 +575,8 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 			}
 			else {
 				player = IndextoRPGPlayer(CRPG::FindPlayer(engine->Cmd_Argv(1)));
-				WARN_IF(player == NULL, return PLUGIN_STOP)
+				if(player == NULL) /* don't warn */
+					return PLUGIN_STOP;
 
 				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
 			}
@@ -614,7 +619,10 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		int dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
 		const char *weapon = event->GetString("weapon");
 
-		WARN_IF((attacker == NULL) || (victim == NULL), return)
+		if(attacker == NULL) /* probably "world" */
+			return ;
+
+		WARN_IF(victim == NULL, return)
 
 		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
@@ -622,9 +630,17 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			CRPGI_FNade::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
 		else if(CRPG::istrcmp((char*)weapon, "knife"))
 			CRPGI_IceStab::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
+		else
+			CRPGI_FPistol::PlayerDamage(attacker, victim, (char*)weapon);
 	}
 	else if(FStrEq(name, "player_jump")) {
 		CRPGI_LJump::PlayerJump(event->GetInt("userid"));
+	}
+	else if(FStrEq(name, "item_pickup")) {
+		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
+		WARN_IF(player == NULL, return)
+
+		CRPGI_Denial::ItemPickup(player, (char*)event->GetString("item"));
 	}
 	else if(FStrEq(name, "player_spawn")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
@@ -634,6 +650,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 
 		CRPGI_HBonus::SetSpawnHealth(player);
 		CRPGI_Stealth::SetVisibilities();
+		CRPGI_Denial::PlayerSpawn(player);
 	}
 	else if(FStrEq(name, "player_death")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
@@ -688,7 +705,8 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 					}
 					else {
 						player = IndextoRPGPlayer(CRPG::FindPlayer((char*)text));
-						WARN_IF(player == NULL, return)
+						if(player == NULL) /* don't warn */
+							return ;
 
 						CRPG_RankManager::ChatAreaRank(player);
 					}
