@@ -401,7 +401,7 @@ void CRPG_GlobalSettings::InitSettings(void) {
 
 	type = &CRPG::item_types[ITEM_FPISTOL];
 	CRPG_Setting::CreateVar("fpistol_enable", "1", "Sets the FrostPistol item to enabled (1) or disabled (0)", var_bool, &type->enable);
-	CRPG_Setting::CreateVar("fpistol_maxlevel", "5", "FrostPistol item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
+	CRPG_Setting::CreateVar("fpistol_maxlevel", "10", "FrostPistol item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("fpistol_cost", "20", "FrostPistol item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("fpistol_icost", "15", "FrostPistol item cost increment for each level", var_uint, &type->inc_cost);
 
