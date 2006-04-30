@@ -347,6 +347,7 @@ void CPluginCSSRPG::LevelInit(char const *pMapName) {
 	gameeventmanager->AddListener(this, "player_spawn", true);
 	gameeventmanager->AddListener(this, "player_death", true);
 	gameeventmanager->AddListener(this, "player_say", true);
+	gameeventmanager->AddListener(this, "round_start", true);
 	gameeventmanager->AddListener(this, "round_end", true);
 	gameeventmanager->AddListener(this, "bomb_planted", true);
 	gameeventmanager->AddListener(this, "bomb_defused", true);
@@ -369,6 +370,7 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	if(!esounds->IsSoundPrecached("buttons/blip2.wav")) {
 		esounds->PrecacheSound("buttons/blip2.wav", true);
 	}
+
 	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet1.wav")) {
 		esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
 	}
@@ -377,6 +379,19 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	}
 	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet3.wav")) {
 		esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
+	}
+
+	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet1.wav")) {
+		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet1.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet2.wav")) {
+		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet2.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet3.wav")) {
+		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet3.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet4.wav")) {
+		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet4.wav", true);
 	}
 
 	CRPG_Utils::Init();
@@ -406,6 +421,7 @@ void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPGI_LJump::CheckAll();
 	CRPGI_IceStab::GameFrame();
 	CRPGI_FPistol::GameFrame();
+	CRPGI_Denial::NextFrame();
 
 	return ;
 }
@@ -644,13 +660,21 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	}
 	else if(FStrEq(name, "player_spawn")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
+		CRPGI_Denial *dn;
+
 		WARN_IF(player == NULL, return)
 
+		CRPGI_Denial::players_spawned = 1;
+
+		if(player->css.isdead) {
+			dn = IndextoDenial(player->index);
+			WARN_IF(dn == NULL, return)
+			dn->was_dead = 1;
+		}
 		player->css.isdead = 0;
 
 		CRPGI_HBonus::SetSpawnHealth(player);
 		CRPGI_Stealth::SetVisibilities();
-		CRPGI_Denial::PlayerSpawn(player);
 	}
 	else if(FStrEq(name, "player_death")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
@@ -726,9 +750,13 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			menu->CreateMenu();
 		}
 	}
+	else if(FStrEq(name, "round_start")) {
+		CRPGI_Denial::round_end = 0;
+	}
 	else if(FStrEq(name, "round_end")) {
 		CRPG_StatsManager::WinningTeam(event->GetInt("winner"), event->GetInt("reason"));
 		CRPG_TeamBalance::RoundEnd();
+		CRPGI_Denial::round_end = 1;
 	}
 	else if(FStrEq(name, "bomb_planted")) {
 		CRPG_StatsManager::BombPlanted(event->GetInt("userid"));
