@@ -664,13 +664,16 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 
 		WARN_IF(player == NULL, return)
 
-		CRPGI_Denial::players_spawned = 1;
+		if(CRPGI_Denial::round_end) {
+			CRPGI_Denial::players_spawned = 1;
 
-		if(player->css.isdead) {
-			dn = IndextoDenial(player->index);
-			WARN_IF(dn == NULL, return)
-			dn->was_dead = 1;
+			if(player->css.isdead) {
+				dn = IndextoDenial(player->index);
+				WARN_IF(dn == NULL, return)
+				dn->was_dead = 1;
+			}
 		}
+
 		player->css.isdead = 0;
 
 		CRPGI_HBonus::SetSpawnHealth(player);
