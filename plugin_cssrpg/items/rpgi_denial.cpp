@@ -58,6 +58,8 @@ template class CRPG_PlayerClass<CRPGI_Denial>;
 template<> CRPGI_Denial** CRPG_PlayerClass<CRPGI_Denial>::nodes;
 CRPGI_Denial** CRPGI_Denial::players;
 unsigned int CRPGI_Denial::player_count;
+char CRPGI_Denial::round_end = 0;
+char CRPGI_Denial::players_spawned = 0;
 
 void CRPGI_Denial::Init(void) {
 	unsigned int i;
@@ -97,7 +99,6 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 
 	WARN_IF((player == NULL) || (item == NULL), return)
 
-
 	dn = IndextoDenial(player->index);
 	if(dn == NULL) {
 		dn = new_node(player->e());
@@ -105,6 +106,11 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	else if(dn->index != player->index) {
 		del_node(dn);
 		dn = new_node(player->e());
+	}
+
+	if(round_end) {
+		if(CRPG::istrcmp(item, "glock") || CRPG::istrcmp(item, "usp"))
+			return ; /* don't allow spawned weapons to override denial weapons */
 	}
 
 	i = PRIM_TYPES_COUNT;
@@ -139,71 +145,107 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	return ;
 }
 
-void CRPGI_Denial::PlayerSpawn(CRPG_Player *player) {
+void CRPGI_Denial::NextFrame(void) {
 	CRPGI_Denial *dn;
+	CRPG_Player *player;
+	unsigned int i = player_count;
+	static char players_stripped = 0;
 
-	WARN_IF(player == NULL, return)
-
-	if(!CRPG_GlobalSettings::enable)
+	if(!players_spawned)
 		return ;
 
 	IF_ITEM_NENABLED(ITEM_DENIAL)
 		return ;
 
-	IF_BOT_NENABLED(player)
+	if(!players_stripped) {
+		while(i--) {
+			if(CRPG_Player::players[i] != NULL) {
+				player = CRPG_Player::players[i];
+
+				IF_BOT_NENABLED(player)
+					continue;
+
+				if(player->items[ITEM_DENIAL].level >= 2) { /* Strip all weapons to make room for ours */
+					CRPG::SetCheats(1);
+					CRPG::s_helpers()->ClientCommand(player->e(), "give player_weaponstrip\n");
+					CRPG::s_helpers()->ClientCommand(player->e(), "ent_fire player_weaponstrip Strip\n");
+					CRPG::s_helpers()->ClientCommand(player->e(), "give weapon_knife\n");
+					CRPG::SetCheats(0);
+				}
+			}
+		}
+
+		players_stripped = 1;
 		return ;
-
-	dn = IndextoDenial(player->index);
-	if(dn == NULL) /* don't warn */
-		return ;
-
-	/* Level 1 */
-	if(player->items[ITEM_DENIAL].level >= 1) {
-		if(dn->inv.equip.flashbang)
-			CBasePlayer_GiveNamedItem(player->cbp(), "weapon_flashbang");
-		if(dn->inv.equip.hegrenade)
-			CBasePlayer_GiveNamedItem(player->cbp(), "weapon_hegrenade");
-		if(dn->inv.equip.smokegrenade)
-			CBasePlayer_GiveNamedItem(player->cbp(), "weapon_smokegrenade");
-		if(dn->inv.equip.defuser)
-			CBasePlayer_GiveNamedItem(player->cbp(), "item_defuser");
-		if(dn->inv.equip.nvgs)
-			CBasePlayer_GiveNamedItem(player->cbp(), "item_nvgs");
 	}
-	else {
-		goto reset_equip;
+
+	while(i--) {
+		if(CRPG_Player::players[i] != NULL) {
+			player = CRPG_Player::players[i];
+			dn = IndextoDenial(player->index);
+			WARN_IF(dn == NULL, continue)
+
+			IF_BOT_NENABLED(player)
+				continue;
+
+			/* Level 1 */
+			if(player->items[ITEM_DENIAL].level >= 1) {
+				if(dn->inv.equip.flashbang)
+					CBasePlayer_GiveNamedItem(player->cbp(), "weapon_flashbang");
+				if(dn->inv.equip.hegrenade)
+					CBasePlayer_GiveNamedItem(player->cbp(), "weapon_hegrenade");
+				if(dn->inv.equip.smokegrenade)
+					CBasePlayer_GiveNamedItem(player->cbp(), "weapon_smokegrenade");
+				if(dn->inv.equip.defuser)
+					CBasePlayer_GiveNamedItem(player->cbp(), "item_defuser");
+				if(dn->inv.equip.nvgs)
+					CBasePlayer_GiveNamedItem(player->cbp(), "item_nvgs");
+			}
+			else {
+				goto reset_equip;
+			}
+			/* *** */
+
+			/* Level 2 */
+			if(player->items[ITEM_DENIAL].level >= 2) {
+				if(*dn->inv.secondary)
+					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.secondary);
+				else
+					CBasePlayer_GiveNamedItem(player->cbp(), player->css.team == team_t ? "weapon_glock" : "weapon_usp");
+			}
+			else {
+				goto reset_secondary;
+			}
+			/* *** */
+
+			/* Level 3 */
+			if(player->items[ITEM_DENIAL].level >= 3) {
+				if(*dn->inv.primary)
+					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.primary);
+			}
+			else {
+				goto reset_primary;
+			}
+			/* *** */
+
+			continue;
+
+		reset_equip:
+			dn->inv.equip.flashbang = 0;
+			dn->inv.equip.hegrenade = 0;
+			dn->inv.equip.smokegrenade = 0;
+			dn->inv.equip.defuser = 0;
+			dn->inv.equip.nvgs = 0;
+
+		reset_secondary:
+			memset(dn->inv.secondary, '\0', 24);
+
+		reset_primary:
+			memset(dn->inv.primary, '\0', 24);
+		}
 	}
-	/* *** */
 
-	/* Level 2 */
-	if(player->items[ITEM_DENIAL].level >= 2)
-		CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.secondary);
-	else
-		goto reset_secondary;
-	/* *** */
-
-	/* Level 3 */
-	if(player->items[ITEM_DENIAL].level >= 3)
-		CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.primary);
-	else
-		goto reset_primary;
-	/* *** */
-
-	goto reset_none;
-
-reset_equip:
-	dn->inv.equip.flashbang = 0;
-	dn->inv.equip.hegrenade = 0;
-	dn->inv.equip.smokegrenade = 0;
-	dn->inv.equip.defuser = 0;
-	dn->inv.equip.nvgs = 0;
-
-reset_secondary:
-	memset(dn->inv.secondary, '\0', 24);
-
-reset_primary:
-	memset(dn->inv.primary, '\0', 24);
-
-reset_none:
+	players_stripped = 0;
+	players_spawned = 0;
 	return ;
 }

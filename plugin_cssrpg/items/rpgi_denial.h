@@ -44,8 +44,12 @@ class CRPGI_Denial: public CRPG_PlayerClass<CRPGI_Denial> {
 
 public:
 	/* Public Variables */
+	char was_dead;
+
 	static CRPGI_Denial** players;
 	static unsigned int player_count;
+	static char round_end;
+	static char players_spawned;
 
 	/* Public Functions */
 	static void Init(void);
@@ -54,7 +58,7 @@ public:
 	static void SellItem(void *ptr);
 
 	static void ItemPickup(CRPG_Player *player, char *item);
-	static void PlayerSpawn(CRPG_Player *player);
+	static void NextFrame(void);
 };
 
 CRPGI_Denial* IndextoDenial(int index);
