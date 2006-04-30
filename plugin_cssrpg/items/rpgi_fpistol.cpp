@@ -122,6 +122,9 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 	IF_ITEM_NENABLED(ITEM_FPISTOL)
 		return ;
 
+	if(attacker->css.team == victim->css.team)
+		return ;
+
 	IF_BOT_NENABLED(attacker)
 		return ;
 
@@ -156,6 +159,25 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 					CRPG::SetCheats(0);
 				}
 			}
+
+			switch(rand()%4) {
+				case 0:
+					CRPG::EmitSound(0, "physics/surfaces/tile_impact_bullet1.wav", 0.8, victim);
+					break;
+
+				case 1:
+					CRPG::EmitSound(0, "physics/surfaces/tile_impact_bullet2.wav", 0.8, victim);
+					break;
+
+				case 2:
+					CRPG::EmitSound(0, "physics/surfaces/tile_impact_bullet3.wav", 0.8, victim);
+					break;
+
+				case 3:
+					CRPG::EmitSound(0, "physics/surfaces/tile_impact_bullet4.wav", 0.8, victim);
+					break;
+			}
+
 			fp->end_tm = CRPG::s_globals()->curtime+((float)attacker->items[ITEM_FPISTOL].level*(float)FPISTOL_INC);
 		}
 	}

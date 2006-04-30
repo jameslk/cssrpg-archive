@@ -18,12 +18,12 @@
 #ifndef RPGI_FPISTOL_H
 #define RPGI_FPISTOL_H
 
-#define FPISTOL_GLOCK	0.64
-#define FPISTOL_USP		0.64
-#define FPISTOL_P228	0.52
-#define FPISTOL_DEAGLE	0.75
-#define FPISTOL_ELITE	0.75
-#define FPISTOL_FSEVEN	0.52
+#define FPISTOL_GLOCK	0.45
+#define FPISTOL_USP		0.45
+#define FPISTOL_P228	0.3
+#define FPISTOL_DEAGLE	0.55
+#define FPISTOL_ELITE	0.55
+#define FPISTOL_FSEVEN	0.3
 
 #define FPISTOL_INC 0.1 /* FrostPistol speed time increase for each level */
 
