@@ -31,6 +31,7 @@
 #include "cssrpg_menu.h"
 #include "cssrpg_stats.h"
 #include "cssrpg_commands.h"
+#include "cssrpg_textdb.h"
 #include "items/rpgi.h"
 #include "cssrpg_console.h"
 
@@ -118,6 +119,46 @@ CON_COMMAND(cssrpg_debug_giveitem, "Gives a player a new Item Level") {
 	return ;
 }
 
+CON_COMMAND(cssrpg_debug_listdir, "List a directory's contents") {
+	struct file_info file;
+	unsigned int i = 0;
+
+	while(CRPG::traverse_dir(file, CRPG::s_engine()->Cmd_Argv(1), i++) != END_OF_DIR) {
+		if(file.type == file_normal)
+			CRPG::DebugMsg("File: %s", file.name);
+		else
+			CRPG::DebugMsg("Directory: %s", file.name);
+	}
+
+	return ;
+}
+
+CON_COMMAND(cssrpg_debug_langkeys, "List a language's keys") {
+	unsigned int i;
+	CRPG_TextDB *txtdb;
+
+	if(CRPG::s_engine()->Cmd_Argc() < 2) {
+		CRPG::DebugMsg("cssrpg_debug_langkeys: Please specify a language file");
+		return ;
+	}
+
+	txtdb = FiletoTextDB(CRPG::s_engine()->Cmd_Argv(1));
+	if(txtdb == NULL) {
+		CRPG::DebugMsg("cssrpg_debug_langkeys: Language file was not found");
+		return ;
+	}
+
+	CRPG::DebugMsg("*** cssrpg_debug_langkeys: Start ***");
+	CRPG::DebugMsg("Language Name: %s", txtdb->name);
+
+	for(i = 0;i < TXTDB_KEY_COUNT;i++)
+		CRPG::DebugMsg("Key %s: %s", txtdb->txt.key_array[i]->name, txtdb->txt.key_array[i]->s);
+
+	CRPG::DebugMsg("*** cssrpg_debug_langkeys: End ***");
+
+	return ;
+}
+
 /*	//////////////////////////////////////
 	Static Server Variables
 	////////////////////////////////////// */
@@ -153,7 +194,8 @@ void CRPG_Setting::FreeMemory(void) {
 void CRPG_Setting::setval_for_type(void) {
 	switch(this->type) {
 		case var_str:
-			Q_strncpy(this->val.s, this->var->GetString(), 256);
+			memset(this->val.s, '\0', 256);
+			strncpy(this->val.s, this->var->GetString(), 255);
 			break;
 
 		case var_float:
@@ -180,7 +222,8 @@ void CRPG_Setting::setval_for_type(void) {
 	if(this->flags & SETTING_HAS_UPDATEVAR) {
 		switch(this->type) {
 			case var_str:
-				Q_strncpy((char*)this->update, this->val.s, 256);
+				memset(this->val.s, '\0', 256);
+				strncpy((char*)this->update, this->val.s, 255);
 				break;
 
 			case var_float:
@@ -252,7 +295,8 @@ CRPG_Setting* CRPG_Setting::new_setting(char *name, char *defaultval, char *desc
 	setting = new CRPG_Setting;
 
 	Q_snprintf(setting->name, 32, "cssrpg_%s", name);
-	Q_strncpy(setting->defaultval, defaultval, 256);
+	memset(setting->val.s, '\0', 256);
+	Q_strncpy(setting->defaultval, defaultval, 255);
 	Q_strncpy(setting->desc, desc, 512);
 
 	setting->var = new ConVar(setting->name, setting->defaultval, 0, setting->desc, CRPG_Setting::SettingChange);
@@ -281,6 +325,7 @@ CRPG_Setting* CRPG_Setting::CreateVar(char *name, char *defaultval, char *desc, 
 	setting->update = update;
 	setting->flags = SETTING_HAS_UPDATEVAR;
 	setting->setval_for_type();
+	SettingChange(setting->var, setting->var->GetString());
 
 	return setting;
 }
@@ -291,6 +336,7 @@ CRPG_Setting* CRPG_Setting::CreateVar(char *name, char *defaultval, char *desc, 
 	setting->func = func;
 	setting->flags = SETTING_HAS_CALLBACK;
 	setting->setval_for_type();
+	SettingChange(setting->var, setting->var->GetString());
 
 	return setting;
 }
@@ -302,6 +348,7 @@ CRPG_Setting* CRPG_Setting::CreateVar(char *name, char *defaultval, char *desc, 
 	setting->func = func;
 	setting->flags = (SETTING_HAS_UPDATEVAR | SETTING_HAS_CALLBACK);
 	setting->setval_for_type();
+	SettingChange(setting->var, setting->var->GetString());
 
 	return setting;
 }
@@ -314,9 +361,12 @@ bool CRPG_GlobalSettings::bot_enable;
 bool CRPG_GlobalSettings::debug_mode;
 bool CRPG_GlobalSettings::save_data;
 bool CRPG_GlobalSettings::steamid_save;
+char CRPG_GlobalSettings::default_lang[256];
 unsigned int CRPG_GlobalSettings::save_interval;
 unsigned int CRPG_GlobalSettings::player_expire;
 bool CRPG_GlobalSettings::announce_newlvl;
+
+unsigned int CRPG_GlobalSettings::icestab_lmtdmg;
 
 bool CRPG_GlobalSettings::exp_notice;
 unsigned int CRPG_GlobalSettings::exp_max;
@@ -347,6 +397,7 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("debug", "0", "Turns on debug mode for this plugin", var_bool, &debug_mode);
 	CRPG_Setting::CreateVar("save_data", "1", "If disabled, the database won't be updated (this means player data won't be saved!)", var_bool, &save_data);
 	CRPG_Setting::CreateVar("steamid_save", "1", "Save by SteamID instead of by SteamID and name", var_bool, &steamid_save);
+	CRPG_Setting::CreateVar("default_lang", "english.txt", "Default language file (e.g. english.txt)", var_str, default_lang);
 	CRPG_Setting::CreateVar("save_interval", "150", "Interval (in seconds) that player data is auto saved (0 = off)", var_uint, &save_interval);
 	CRPG_Setting::CreateVar("player_expire", "30", "Sets how many days until an unused player account is deleted (0 = never)", var_uint, &player_expire);
 	CRPG_Setting::CreateVar("announce_newlvl", "1", "Global announcement when a player reaches a new level (1 = enable, 0 = disable)", var_bool, &announce_newlvl);
@@ -404,12 +455,13 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("fpistol_maxlevel", "10", "FrostPistol item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("fpistol_cost", "20", "FrostPistol item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("fpistol_icost", "15", "FrostPistol item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("fpistol_limit_dmg", "5", "Maximum damage that can be done upon icestabbed victims (0 = disable)", var_uint, &icestab_lmtdmg);
 
 	type = &CRPG::item_types[ITEM_DENIAL];
 	CRPG_Setting::CreateVar("denial_enable", "1", "Sets the Denial item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("denial_maxlevel", "3", "Denial item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
-	CRPG_Setting::CreateVar("denial_cost", "20", "Denial item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("denial_icost", "15", "Denial item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("denial_cost", "25", "Denial item start cost", var_uint, &type->start_cost);
+	CRPG_Setting::CreateVar("denial_icost", "30", "Denial item cost increment for each level", var_uint, &type->inc_cost);
 
 	CRPG_Setting::CreateVar("exp_notice", "1", "Sets notifications to players when they gain Experience", var_bool, &exp_notice);
 	CRPG_Setting::CreateVar("exp_max", "50000", "Maximum experience that will ever be required", var_uint, &exp_max);
