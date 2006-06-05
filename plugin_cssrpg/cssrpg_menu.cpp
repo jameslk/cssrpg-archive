@@ -717,7 +717,7 @@ void CRPG_Menu::SendOutput(char finalize) {
 	buffer->WriteShort((finalize ? this->options : 1 << 9)); //Sets how many options the menu has
 	buffer->WriteChar(-1); //Sets how long the menu stays open -1 for stay until option selected
 	buffer->WriteByte((finalize ? 0 : 1)); // 0 = Draw Immediately, 1 = Draw Later
-	CRPG::BFWriteUString(buffer, this->menu_out); //The text shown on the menu
+	buffer->WriteString(this->menu_out); //The text shown on the menu
 
 	engine->MessageEnd();
 
