@@ -32,6 +32,7 @@
 
 #include "cssrpg.h"
 #include "cssrpg_bot.h"
+#include "cssrpg_textdb.h"
 #include "items/rpgi.h"
 #include "cssrpg_commands.h"
 
@@ -134,12 +135,25 @@ void CRPG_Commands::ExecCmd(void) {
 	} \
 	index = buf->index;
 
-RPG_CMD(help, "List of CSS:RPG commands", 0, "") {
-	CRPG_Commands *cmd;
+RPG_CMD(help, "List of CSS:RPG commands and help for specific commands", 0, "[command name]") {
+	CRPG_Commands *cmd = NULL;
 
-	CRPG::ConsoleMsg("", "Commands");
-	for(cmd = CRPG_Commands::ll_first;cmd != NULL;cmd = cmd->ll_next)
-		CRPG::ConsoleMsg("%s%s - %s", NULL, RPGCMD_PREFIX, cmd->name, cmd->info);
+	if(argc) {
+		for(cmd = CRPG_Commands::ll_first;cmd != NULL;cmd = cmd->ll_next) {
+			if((strlen(argv[0]) == (RPGCMD_PREFIX_LEN+strlen(cmd->name))) && CRPG::istrcmp(argv[0]+RPGCMD_PREFIX_LEN, cmd->name)) {
+				CRPG::ConsoleMsg("%s%s %s", NULL, RPGCMD_PREFIX, cmd->name, cmd->arg_template);
+				CRPG::ConsoleMsg("- %s", NULL, cmd->info);
+				break;
+			}
+		}
+		if(cmd == NULL)
+			CRPG::ConsoleMsg("Command \"%s\" not found", thiscmd, argv[0]);
+	}
+	else {
+		CRPG::ConsoleMsg("", "Commands");
+		for(cmd = CRPG_Commands::ll_first;cmd != NULL;cmd = cmd->ll_next)
+			CRPG::ConsoleMsg("%s%s - %s", NULL, RPGCMD_PREFIX, cmd->name, cmd->info);
+	}
 
 	return 1;
 }
@@ -209,7 +223,7 @@ RPG_CMD(setlvl, "Set a player's Level", 2, "<player name | userid | steamid> <ne
 	player->exp = 0;
 
 	if(newlvl > oldlvl) {
-		player->credits = (newlvl-oldlvl)*CRPG_GlobalSettings::credits_inc;
+		player->credits += (newlvl-oldlvl)*CRPG_GlobalSettings::credits_inc;
 		if(player->isfake())
 			CRPG_Bot::PickUpgrade(player);
 	}
@@ -217,7 +231,7 @@ RPG_CMD(setlvl, "Set a player's Level", 2, "<player name | userid | steamid> <ne
 	CRPG::ConsoleMsg("%s has been set to Level %d (previously Level %d)", thiscmd, player->name(), player->level, oldlvl);
 
 	if(CRPG_GlobalSettings::announce_newlvl)
-		CRPG::ChatAreaMsg(0, "%s is now Level %d", player->name(), player->level);
+		CRPG::ChatAreaMsg(0, TXTDB_ID(newlvl.msg1), player->name(), player->level);
 
 	return 1;
 }
@@ -239,7 +253,7 @@ RPG_CMD(addlvl, "Add Level(s) to a player's current Level", 2, "<player name | u
 	player->level += newlvl;
 	player->exp = 0;
 
-	player->credits = newlvl*CRPG_GlobalSettings::credits_inc;
+	player->credits += newlvl*CRPG_GlobalSettings::credits_inc;
 	if(player->isfake())
 		CRPG_Bot::PickUpgrade(player);
 
@@ -248,7 +262,7 @@ RPG_CMD(addlvl, "Add Level(s) to a player's current Level", 2, "<player name | u
 	CRPG::ConsoleMsg("%s has been set to Level %d (previously Level %d)", thiscmd, player->name(), player->level, oldlvl);
 
 	if(CRPG_GlobalSettings::announce_newlvl)
-		CRPG::ChatAreaMsg(0, "%s is now Level %d", player->name(), player->level);
+		CRPG::ChatAreaMsg(0, TXTDB_ID(newlvl.msg1), player->name(), player->level);
 
 	return 1;
 }
@@ -297,6 +311,36 @@ RPG_CMD(addexp, "Give a player Experience", 2, "<player name | userid | steamid>
 	CRPG::ConsoleMsg("%s is now Level %d and has %d/%d Experience (previously Level %d with %d/%d Experience)",
 		thiscmd, player->name(), player->level, player->exp, CRPG_StatsManager::LvltoExp(player->level),
 		oldlvl, oldexp, CRPG_StatsManager::LvltoExp(oldlvl));
+
+	return 1;
+}
+
+RPG_CMD(setcredits, "Set a player's Credits", 2, "<player name | userid | steamid> <new credits>") {
+	CRPG_Player *player;
+	unsigned int oldcredits;
+
+	GET_PLAYER_OR_RETURN(argv[0], player)
+
+	oldcredits = player->credits;
+	player->credits = abs(atoi(argv[1]));
+
+	CRPG::ConsoleMsg("%s now has %ld Credits (previously had %ld Credits)",
+		thiscmd, player->name(), player->credits, oldcredits);
+
+	return 1;
+}
+
+RPG_CMD(addcredits, "Add to player's Credits", 2, "<player name | userid | steamid> <new credits>") {
+	CRPG_Player *player;
+	unsigned int oldcredits;
+
+	GET_PLAYER_OR_RETURN(argv[0], player)
+
+	oldcredits = player->credits;
+	player->credits += abs(atoi(argv[1]));
+
+	CRPG::ConsoleMsg("%s now has %ld Credits (previously had %ld Credits)",
+		thiscmd, player->name(), player->credits, oldcredits);
 
 	return 1;
 }
@@ -467,5 +511,31 @@ RPG_CMD(sellall, "Force a player to sell all their Upgrades (full refund)", 1, "
 }
 
 RPG_CMD(db_delplayer, "Delete a player entry from both tables in the database (this cannot be undone!)", 1, "<full name | player db id | steamid>") {
+	return 1;
+}
+
+RPG_CMD(db_write, "Write current player data to the database", 0, "") {
+	CRPG_Player::SaveAll();
+	CRPG::ConsoleMsg("All player data has been saved to the database", thiscmd);
+
+	return 1;
+}
+
+RPG_CMD(cvarlist, "Build a list of CSS:RPG's CVARs for a config file", 0, "[use default values (1 or 0)]") {
+	CRPG_Setting *setting;
+
+	for(setting = CRPG_Setting::ll_first;setting != NULL;setting = setting->ll_next) {
+		if(argc && atoi(argv[0]) == 1)
+			CRPG::ConsoleMsg("%s \"%s\" //%s", NULL, setting->name, setting->defaultval, setting->desc);
+		else
+			CRPG::ConsoleMsg("%s \"%s\" //%s", NULL, setting->name, setting->var->GetString(), setting->desc);
+	}
+
+	return 1;
+}
+
+RPG_CMD(reloadlangs, "Reload all languages for CSS:RPG", 0, "") {
+	CRPG_TextDB::LoadLanguages();
+
 	return 1;
 }
