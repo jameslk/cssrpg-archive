@@ -60,19 +60,25 @@ void CRPGI_Vamp::SellItem(void *ptr) {
 
 void CRPGI_Vamp::add_health(CRPG_Player *player, unsigned int hp) {
 	CRPGI_HBonus *hb;
-	unsigned int new_health;
+	unsigned int new_health, max_health;
 
 	WARN_IF(player == NULL, return)
 
-	hb = IndextoHBonus(player->index);
-	if((unsigned int)player->cbp()->GetHealth() >= hb->health)
-		return ;
+	IF_ITEM_ENABLED(ITEM_HBONUS) {
+		hb = IndextoHBonus(player->index);
+		if((unsigned int)player->cbp()->GetHealth() >= hb->health)
+			return ;
+		max_health = hb->health;
+	}
+	else {
+		max_health = 100;
+	}
 
 	new_health = player->cbp()->GetHealth()+hp;
-	if(new_health <= hb->health)
+	if(new_health <= max_health)
 		player->cbp()->SetHealth(new_health);
 	else
-		player->cbp()->SetHealth(hb->health);
+		player->cbp()->SetHealth(max_health);
 
 	return ;
 }
@@ -81,16 +87,18 @@ void CRPGI_Vamp::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dm
 	unsigned int total_dmg = (unsigned int)(dmg_health+dmg_armor);
 	float inc;
 
+	WARN_IF((attacker == NULL) || (victim == NULL), return)
+
 	IF_ITEM_NENABLED(ITEM_VAMP)
+		return ;
+
+	IF_BOT_NENABLED(attacker)
 		return ;
 
 	if(attacker->css.team == victim->css.team)
 		return ;
 
 	if(!attacker->items[ITEM_VAMP].level)
-		return ;
-
-	if((attacker->isfake()) && (!CRPG_GlobalSettings::bot_enable))
 		return ;
 
 	inc = (float)attacker->items[ITEM_VAMP].level*VAMP_INC;
