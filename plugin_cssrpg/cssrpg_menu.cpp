@@ -543,6 +543,7 @@ void CRPG_Menu::SettingsSelect(unsigned int option) {
 		WARN_IF(txtdb == NULL, this->DelMenu(); return)
 
 		player->lang = txtdb;
+		player->lang_is_set = 1;
 		CRPG::ChatAreaMsg(player->index, TXTDB(player, menu_result.lang_changed), txtdb->name);
 		this->DelMenu();
 	}

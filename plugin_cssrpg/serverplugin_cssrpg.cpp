@@ -408,9 +408,7 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet4.wav", true);
 	}
 
-	if(!esounds->IsSoundPrecached("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav")) {
-		esounds->PrecacheSound("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav", true);
-	}
+	esounds->PrecacheSound("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav", true);
 
 	CRPG_Utils::Init();
 	CRPG_TextDB::Init();
@@ -784,7 +782,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		}
 
 		/* So I was bored... */
-		else if(FStrEq(text, "gaben")) {
+		else if(FStrEq(text, "rpggaben")) {
 			CRPG_Player *player = UserIDtoRPGPlayer(userid);
 			if(player == NULL)
 				return ;
