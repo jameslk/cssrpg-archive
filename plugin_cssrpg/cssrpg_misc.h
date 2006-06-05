@@ -24,6 +24,9 @@
 #else
     #include <unistd.h>
     #include <pthread.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
+	#include <dirent.h>
 #endif
 
 class CRPG_Player;
@@ -38,6 +41,20 @@ struct edict_t;
 
 enum motd_type {motd_text = 1, motd_index, motd_url, motd_file};
 
+enum file_type {file_normal, file_dir};
+#define END_OF_DIR 2
+
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
+
+struct file_info {
+	char name[MAX_PATH];
+	char ext[MAX_PATH];
+	char fullpath[MAX_PATH];
+	file_type type;
+};
+
 class IPlayerInfo;
 class IVEngineServe;
 class IPlayerInfoManager;
@@ -48,7 +65,7 @@ private:
 	/* Private Variables */
 	static FILE *dlog_fptr;
 
-	static int saytext;
+	static int textmsg;
 	static int hinttext;
 	static int vguimenu;
 
@@ -77,6 +94,7 @@ public:
 
 	static int FindPlayer(char *str); /* used to find a player by their name or part of their name or also by userid */
 	static void ChatAreaMsg(int index, char *msg, ...);
+	static void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...);
 	static void HintTextMsg(int index, char *msgf, ...);
 	static void EmitSound(int index, char *sound_path, float vol = 0.7, CRPG_Player *follow = NULL);
 	static void ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd = NULL);
@@ -89,7 +107,9 @@ public:
 	static unsigned int steamid_check(char *steamid);
 	static unsigned char* ustrncpy(unsigned char *dest, const unsigned char *src, int len);
 	static unsigned int istrcmp(char *str1, char *str2);
+	static unsigned int memrcmp(void *mem_end1, void *mem_end2, size_t len);
 	static char* istrstr(char *str, char *substr);
+	static unsigned int traverse_dir(struct file_info &file, char *path, unsigned int position);
 
 	#ifdef WIN32
 	unsigned int CRPG_Utils::CreateThread(LPTHREAD_START_ROUTINE func, LPVOID param);
@@ -368,6 +388,154 @@ public:
 	static T *ll_last;
 	static unsigned int ll_count;
 
+	T *ll_next;
+	T *ll_prev;
+};
+
+/*	//////////////////////////////////////
+	CRPG_DynLinkedList Template Class
+	////////////////////////////////////// */
+template <class T> class CRPG_DynLinkedList {
+private:
+	T **first;
+	T **last;
+	unsigned int *count;
+
+protected:
+	/* Protected Functions */
+	static void ll_init(void) {
+		*first = NULL;
+		*last = NULL;
+		*count = 0;
+
+		return ;
+	}
+
+	void assign_pointers(T **ll_first, T **ll_last, unsigned int *ll_count) {
+		first = ll_first;
+		last = ll_last;
+		count = ll_count;
+	}
+
+	void ll_add(void) {
+		this->ll_next = NULL;
+
+		if(*first == NULL) {
+			this->ll_prev = NULL;
+			*first = static_cast<T*>(this);
+		}
+		else {
+			this->ll_prev = *last;
+			(*last)->ll_next = static_cast<T*>(this);
+		}
+		*last = static_cast<T*>(this);
+
+		(*count)++;
+		return ;
+	}
+
+	void ll_add(T *node) {
+		node->ll_next = NULL;
+
+		if(*first == NULL) {
+			node->ll_prev = NULL;
+			*first = static_cast<T*>(node);
+		}
+		else {
+			node->ll_prev = *last;
+			(*last)->ll_next = static_cast<T*>(node);
+		}
+		*last = static_cast<T*>(node);
+
+		(*count)++;
+		return ;
+	}
+
+	void ll_del(void) {
+		if(this->ll_next == NULL) {
+			if(this->ll_prev != NULL) {
+				/* ...ll_prev <- this -> NULL */
+				this->ll_prev->ll_next = NULL;
+				*last = this->ll_prev;
+			}
+			else {
+				/* NULL <- this -> NULL */
+				*first = NULL;
+				*last = NULL;
+			}
+		}
+		else {
+			if(this->ll_prev == NULL) {
+				/* NULL <- this -> ll_next... */
+				*first = this->ll_next;
+				(*first)->ll_prev = NULL;
+			}
+			else {
+				/* ...ll_prev <- this -> ll_next... */ \
+				this->ll_next->ll_prev = this->ll_prev;
+				this->ll_prev->ll_next = this->ll_next;
+			}
+		}
+
+		(*count)--;
+		return ;
+	}
+
+	void ll_move_after(T *node) {
+		if(this == node)
+			return ;
+
+		if(this->ll_prev != NULL)
+			this->ll_prev->ll_next = this->ll_next;
+
+		if(this->ll_next != NULL)
+			this->ll_next->ll_prev = this->ll_prev;
+
+		if(node == NULL) {
+			/* Move to the front */
+			this->ll_prev = NULL;
+			this->ll_next = *first;
+
+			(*first)->ll_prev = static_cast<T*>(this);
+			if((*first)->ll_next == NULL) /* this node was also last */
+				*last = *first;
+
+			*first = static_cast<T*>(this);
+		}
+		else {
+			this->ll_prev = node;
+			this->ll_next = node->ll_next;
+
+			if(this->ll_next != NULL) /* if node is not last */
+				node->ll_next->ll_prev = static_cast<T*>(this);
+
+			node->ll_next = static_cast<T*>(this);
+		}
+
+		return ;
+	}
+
+	typedef bool (comp_func)(T* type1, T* type2);
+	static void ll_sort(comp_func *func) {
+		T *ptr, *next;
+		unsigned int i = *count;
+
+		if(func == NULL)
+			return ;
+
+		while(i--) {
+			for(ptr = (*first)->ll_next;ptr != NULL;ptr = next) {
+				next = ptr->ll_next; /* ptr changes its position */
+				if(func(ptr, ptr->ll_prev))
+					ptr->ll_move_after(ptr->ll_prev->ll_prev);
+			}
+		}
+
+		return ;
+	}
+
+public:
+	/* Public Variables */
 	T *ll_next;
 	T *ll_prev;
 };

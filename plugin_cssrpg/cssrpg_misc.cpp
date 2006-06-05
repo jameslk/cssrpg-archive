@@ -40,6 +40,7 @@
 
 #include "cssrpg.h"
 #include "cssrpg_menu.h"
+#include "cssrpg_textdb.h"
 #include "cssrpg_misc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -58,7 +59,7 @@ extern ICvar *cvar;
 	CRPG_Utils Class
 	////////////////////////////////////// */
 FILE* CRPG_Utils::dlog_fptr = NULL;
-int CRPG_Utils::saytext = -1;
+int CRPG_Utils::textmsg = -1;
 int CRPG_Utils::hinttext = -1;
 int CRPG_Utils::vguimenu = -1;
 
@@ -252,16 +253,68 @@ void CRPG_Utils::ChatAreaMsg(int index, char *msgf, ...) {
 		filter.AddRecipient(index);
 
 	va_start(ap, msgf);
-	Q_vsnprintf(msg, sizeof(msg)-1, msgf, ap);
+	Q_vsnprintf(msg, 1024, msgf, ap);
 	va_end(ap);
 
 	sprintf(msg, "%s\n", msg);
 
-	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), 3);
-	buffer->WriteByte(0);
+	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
+	buffer->WriteByte(3);
 	buffer->WriteString(msg);
-	buffer->WriteByte(0);
 	engine->MessageEnd();
+
+	return ;
+}
+
+void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...) {
+	CRPG_Player *player;
+	key_t *key;
+	unsigned int i;
+	MRecipientFilter filter;
+	char msg[1024];
+	bf_write *buffer;
+	va_list ap;
+
+	if(index) {
+		player = IndextoRPGPlayer(index);
+		WARN_IF(player == NULL, return)
+
+		key = player->lang->IDtoKey(key_id);
+		WARN_IF(key == NULL, return)
+
+		va_start(ap, key_id);
+		Q_vsnprintf(msg, 1024, key->s, ap);
+		va_end(ap);
+		sprintf(msg, "%s\n", msg);
+
+		buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), 3);
+		buffer->WriteByte(0);
+		buffer->WriteString(msg);
+		buffer->WriteByte(0);
+		engine->MessageEnd();
+	}
+	else {
+		i = CRPG_Player::player_count;
+		while(i--) {
+			if(CRPG_Player::players[i] != NULL) {
+				player = CRPG_Player::players[i];
+
+				key = player->lang->IDtoKey(key_id);
+				WARN_IF(key == NULL, return)
+
+				va_start(ap, key_id);
+				Q_vsnprintf(msg, 1024, key->s, ap);
+				va_end(ap);
+				sprintf(msg, "%s\n", msg);
+
+				buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), 3);
+				buffer->WriteByte(0);
+				buffer->WriteString(msg);
+				buffer->WriteByte(0);
+				engine->MessageEnd();
+			}
+		}
+	}
 
 	return ;
 }
@@ -496,13 +549,33 @@ unsigned char* CRPG_Utils::ustrncpy(unsigned char *dest, const unsigned char *sr
 }
 
 unsigned int CRPG_Utils::istrcmp(char *str1, char *str2) {
-	unsigned int i, len1 = strlen(str1), len2 = strlen(str2);
+	unsigned int i, len1, len2;
 
+	if((str1 == NULL) || (str2 == NULL))
+		return 0;
+
+	if(!*str1 || !*str2)
+		return 0;
+
+	len1 = strlen(str1);
+	len2 = strlen(str2);
 	if(len1 != len2)
 		return 0;
 
 	for(i = 0;i < len1;i++) {
 		if(tolower(str1[i]) != tolower(str2[i]))
+			return 0;
+	}
+
+	return 1;
+}
+
+/* Reverse compare */
+unsigned int CRPG_Utils::memrcmp(void *mem_end1, void *mem_end2, size_t len) {
+	unsigned char *mem1 = (unsigned char*)mem_end1, *mem2 = (unsigned char*)mem_end2;
+
+	while(len--) {
+		if(*mem1-- != *mem2--)
 			return 0;
 	}
 
@@ -518,6 +591,98 @@ char* CRPG_Utils::istrstr(char *str, char *substr) {
 	}
 
 	return NULL;
+}
+
+unsigned int CRPG_Utils::traverse_dir(struct file_info &file, char *path, unsigned int position) {
+#ifdef WIN32
+
+	char wc_path[MAX_PATH];
+	WIN32_FIND_DATA fdata;
+	HANDLE hfind;
+	unsigned int i = 0;
+	char *strptr;
+
+	Q_snprintf(wc_path, MAX_PATH-1, "%s*", path);
+
+	hfind = FindFirstFile(wc_path, &fdata);
+	if(hfind == INVALID_HANDLE_VALUE)
+		return 0;
+
+	memset(file.name, '\0', MAX_PATH);
+	memset(file.ext, '\0', MAX_PATH);
+	memset(file.fullpath, '\0', MAX_PATH);
+
+	do {
+		if(i++ == position) {
+			strncpy(file.name, fdata.cFileName, MAX_PATH-1);
+			Q_snprintf(file.fullpath, MAX_PATH-1, "%s%s", path, file.name);
+
+			if(!(fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+				file.type = file_normal;
+
+				strptr = strrchr(file.name, '.');
+				if(strptr != NULL)
+					strncpy(file.ext, strptr+1, MAX_PATH);
+			}
+			else {
+				file.type = file_dir;
+			}
+
+			FindClose(hfind);
+			return 1;
+		}
+	} while(FindNextFile(hfind, &fdata));
+	
+	FindClose(hfind);
+	return END_OF_DIR;
+
+#else
+
+	char filepath[MAX_PATH];
+	DIR	*dirptr;
+	struct stat buf;
+	unsigned int i = 0;
+	char *strptr;
+
+	dirptr = opendir(path);
+
+	if(dirptr == NULL)
+		return 0;
+
+	memset(file.name, '\0', MAX_PATH);
+	memset(file.ext, '\0', MAX_PATH);
+	memset(file.fullpath, '\0', MAX_PATH);
+
+	while((dirptr = readdir(dirptr))) {
+		if(i++ == position) {
+			Q_snprintf(filepath, MAX_PATH, "%s%s", path, dirptr->d_name);
+
+			if(stat(filepath, &buf))
+				return 0;
+
+			strncpy(file.name, dirptr->d_name, MAX_PATH-1);
+			strcpy(file.fullpath, filepath);
+
+			if(!(buf.st_mode & S_IFDIR)) {
+				file.type = file_normal;
+
+				strptr = strrchr(file.name, '.');
+				if(strptr != NULL)
+					strncpy(file.ext, strptr+1, MAX_PATH);
+			}
+			else {
+				file.type = file_dir;
+			}
+
+			closedir(dirptr);
+			return 1;
+		}
+	}
+
+	closedir(dirptr);
+	return END_OF_DIR;
+
+#endif
 }
 
 #ifdef WIN32
@@ -554,7 +719,7 @@ unsigned int CRPG_Utils::CreateThread(void*(*func)(void*), void *param) {
 #endif
 
 void CRPG_Utils::Init(void) {
-	saytext = UserMessageIndex("SayText");
+	textmsg = UserMessageIndex("TextMsg");
 	hinttext = UserMessageIndex("HintText");
 	vguimenu = UserMessageIndex("VGUIMenu");
 
