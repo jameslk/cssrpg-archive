@@ -86,9 +86,14 @@ TIMER_FUNC(CRPGI_Regen::IncreaseHealth) {
 			lvl = player->items[ITEM_REGEN].level;
 			hb = IndextoHBonus(player->index);
 			if(lvl) {
-				if(player->cbp()->GetHealth() < (int)hb->health)
-					player->cbp()->SetHealth(player->cbp()->GetHealth()+lvl > hb->health ?
-						hb->health : player->cbp()->GetHealth()+lvl);
+				if(player->cbp()->GetHealth() < (int)hb->health) {
+					IF_ITEM_ENABLED(ITEM_HBONUS)
+						player->cbp()->SetHealth(player->cbp()->GetHealth()+lvl > hb->health ?
+							hb->health : player->cbp()->GetHealth()+lvl);
+					else
+						player->cbp()->SetHealth(player->cbp()->GetHealth()+lvl > 100 ?
+							100 : player->cbp()->GetHealth()+lvl);
+				}
 			}
 		}
 	}
