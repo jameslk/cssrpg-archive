@@ -19,6 +19,7 @@
 #define RPGI_DENIAL_H
 
 /*
+	Reference:
 	primammo, secammo, vest, vesthelm, defuser, nvgs, flashbang, hegrenade
 	smokegrenade, galil, ak47, scout, sg552, awp, g3sg1, famas, m4a1, aug
 	sg550, glock, usp, p228, deagle, elite, fiveseven, m3, xm1014, mac10
@@ -28,6 +29,8 @@
 struct css_inventory {
 	char primary[24];
 	char secondary[24];
+	char second_default[24];
+
 	struct {
 		char flashbang;
 		char hegrenade;
@@ -50,15 +53,27 @@ public:
 	static unsigned int player_count;
 	static char round_end;
 	static char players_spawned;
+	static int last_bomb_index;
 
 	/* Public Functions */
+	CRPGI_Denial() {
+		memset(inv.primary, '\0', 24);
+		memset(inv.secondary, '\0', 24);
+		memset(inv.second_default, '\0', 24);
+		memset(&inv.equip, 0, sizeof(inv.equip));
+		was_dead = 0;
+	}
+
 	static void Init(void);
 	static void ShutDown(void);
 	static void BuyItem(void *ptr);
 	static void SellItem(void *ptr);
 
+	void ResetItems(void);
+
 	static void ItemPickup(CRPG_Player *player, char *item);
 	static void NextFrame(void);
+	static void NadeDetonate(CRPG_Player *player, char *nade);
 };
 
 CRPGI_Denial* IndextoDenial(int index);

@@ -60,6 +60,7 @@ CRPGI_Denial** CRPGI_Denial::players;
 unsigned int CRPGI_Denial::player_count;
 char CRPGI_Denial::round_end = 0;
 char CRPGI_Denial::players_spawned = 0;
+int CRPGI_Denial::last_bomb_index = -1;
 
 void CRPGI_Denial::Init(void) {
 	unsigned int i;
@@ -72,6 +73,7 @@ void CRPGI_Denial::Init(void) {
 
 	nodes = players;
 
+	last_bomb_index = -1;
 	return ;
 }
 
@@ -93,6 +95,15 @@ CRPGI_Denial* IndextoDenial(int index) {
 	return CRPGI_Denial::IndextoHandle(index);
 }
 
+void CRPGI_Denial::ResetItems(void) {
+	memset(this->inv.primary, '\0', 24);
+	memset(this->inv.secondary, '\0', 24);
+	memset(this->inv.second_default, '\0', 24);
+	memset(&this->inv.equip, 0, sizeof(this->inv.equip));
+
+	return ;
+}
+
 void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	CRPGI_Denial *dn;
 	unsigned int i;
@@ -103,14 +114,22 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	if(dn == NULL) {
 		dn = new_node(player->e());
 	}
-	else if(dn->index != player->index) {
+	else if(dn->userid != player->userid) {
 		del_node(dn);
 		dn = new_node(player->e());
 	}
 
 	if(round_end) {
-		if(CRPG::istrcmp(item, "glock") || CRPG::istrcmp(item, "usp"))
-			return ; /* don't allow spawned weapons to override denial weapons */
+		if(CRPG::istrcmp(item, "glock") || CRPG::istrcmp(item, "usp")) {
+			memset(dn->inv.second_default, '\0', 24);
+			Q_snprintf(dn->inv.second_default, 23, "weapon_%s", item);
+			return ;
+		}
+	}
+
+	if(CRPG::istrcmp(item, "c4")) {
+		last_bomb_index = dn->index;
+		return ;
 	}
 
 	i = PRIM_TYPES_COUNT;
@@ -148,14 +167,31 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 void CRPGI_Denial::NextFrame(void) {
 	CRPGI_Denial *dn;
 	CRPG_Player *player;
-	unsigned int i = player_count;
+	unsigned int i;
 	static char players_stripped = 0;
 
 	if(!players_spawned)
 		return ;
 
-	IF_ITEM_NENABLED(ITEM_DENIAL)
+	i = player_count;
+
+	IF_ITEM_NENABLED(ITEM_DENIAL) {
+		while(i--) {
+			if(CRPG_Player::players[i] != NULL) {
+				player = CRPG_Player::players[i];
+				dn = IndextoDenial(player->index);
+				if(dn == NULL)
+					continue;
+
+				dn->ResetItems();
+				dn->was_dead = 0;
+			}
+		}
+
+		players_stripped = 0;
+		players_spawned = 0;
 		return ;
+	}
 
 	if(!players_stripped) {
 		while(i--) {
@@ -165,11 +201,20 @@ void CRPGI_Denial::NextFrame(void) {
 				IF_BOT_NENABLED(player)
 					continue;
 
+				if(player->items[ITEM_DENIAL].level < 1)
+					continue;
+
+				dn = IndextoDenial(player->index);
+				if(dn == NULL) /* don't warn */
+					continue;
+
+				if(!dn->was_dead)
+					continue;
+
 				if(player->items[ITEM_DENIAL].level >= 2) { /* Strip all weapons to make room for ours */
 					CRPG::SetCheats(1);
 					CRPG::s_helpers()->ClientCommand(player->e(), "give player_weaponstrip\n");
 					CRPG::s_helpers()->ClientCommand(player->e(), "ent_fire player_weaponstrip Strip\n");
-					CRPG::s_helpers()->ClientCommand(player->e(), "give weapon_knife\n");
 					CRPG::SetCheats(0);
 				}
 			}
@@ -182,11 +227,24 @@ void CRPGI_Denial::NextFrame(void) {
 	while(i--) {
 		if(CRPG_Player::players[i] != NULL) {
 			player = CRPG_Player::players[i];
-			dn = IndextoDenial(player->index);
-			WARN_IF(dn == NULL, continue)
 
 			IF_BOT_NENABLED(player)
 				continue;
+
+			dn = IndextoDenial(player->index);
+			if(dn == NULL) /* don't warn */
+				continue;
+
+			if(!dn->was_dead)
+				continue;
+
+			dn->was_dead = 0;
+			CBasePlayer_GiveNamedItem(player->cbp(), "weapon_knife");
+
+			if(dn->index == last_bomb_index) {
+				CBasePlayer_GiveNamedItem(player->cbp(), "weapon_c4");
+				last_bomb_index = -1;
+			}
 
 			/* Level 1 */
 			if(player->items[ITEM_DENIAL].level >= 1) {
@@ -210,8 +268,8 @@ void CRPGI_Denial::NextFrame(void) {
 			if(player->items[ITEM_DENIAL].level >= 2) {
 				if(*dn->inv.secondary)
 					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.secondary);
-				else
-					CBasePlayer_GiveNamedItem(player->cbp(), player->css.team == team_t ? "weapon_glock" : "weapon_usp");
+				else if(*dn->inv.second_default)
+					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.second_default);
 			}
 			else {
 				goto reset_secondary;
@@ -231,14 +289,11 @@ void CRPGI_Denial::NextFrame(void) {
 			continue;
 
 		reset_equip:
-			dn->inv.equip.flashbang = 0;
-			dn->inv.equip.hegrenade = 0;
-			dn->inv.equip.smokegrenade = 0;
-			dn->inv.equip.defuser = 0;
-			dn->inv.equip.nvgs = 0;
+			memset(&dn->inv.equip, 0, sizeof(dn->inv.equip));
 
 		reset_secondary:
 			memset(dn->inv.secondary, '\0', 24);
+			memset(dn->inv.second_default, '\0', 24);
 
 		reset_primary:
 			memset(dn->inv.primary, '\0', 24);
@@ -247,5 +302,22 @@ void CRPGI_Denial::NextFrame(void) {
 
 	players_stripped = 0;
 	players_spawned = 0;
+	return ;
+}
+
+void CRPGI_Denial::NadeDetonate(CRPG_Player *player, char *nade) {
+	CRPGI_Denial *dn;
+
+	WARN_IF((player == NULL) || (strlen(nade) < 9), return)
+	dn = IndextoDenial(player->index);
+	WARN_IF(dn == NULL, return)
+
+	if(!memcmp(nade, "hegrenade", 9))
+		dn->inv.equip.hegrenade = 0;
+	else if(!memcmp(nade, "flashbang", 9))
+		dn->inv.equip.flashbang = 0;
+	else if(!memcmp(nade, "smokegrenade", 12))
+		dn->inv.equip.smokegrenade = 0;
+
 	return ;
 }
