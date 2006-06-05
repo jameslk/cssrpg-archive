@@ -32,8 +32,9 @@
 
 #include "cssrpg.h"
 #include "cssrpg_bot.h"
-#include "cssrpg_stats.h"
 #include "cssrpg_database.h"
+#include "cssrpg_textdb.h"
+#include "cssrpg_stats.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -100,17 +101,17 @@ void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc
 	CRPG::DebugMsg(1, "%s is now level %d (%d level increase(s))", player->name(), player->level, lvl_inc);
 
 	if(announce_newlvl)
-		CRPG::ChatAreaMsg(0, "%s is now Level %d", player->name(), player->level);
+		CRPG::ChatAreaMsg(0, TXTDB_ID(newlvl.msg1), player->name(), player->level);
 
 	if(!player->info()->IsFakeClient()) {
 		CRPG::EmitSound(player->index, "buttons/blip2.wav");
 		if((player->level-lvl_inc) <= 1) {
 			/* for newbies */
-			CRPG::ChatAreaMsg(player->index, "\x04You have gained a new Level! This means you can buy Upgrades which give you an advantage over your opponents.\x01");
-			CRPG::ChatAreaMsg(player->index, "\x04Type \"\x03rpgmenu\x04\" in chat, or type it into the console to bring up a menu from which you can buy Upgrades.\x01");
+			CRPG::ChatAreaMsg(player->index, TXTDB(player, newbielvl.msg1));
+			CRPG::ChatAreaMsg(player->index, TXTDB(player, newbielvl.msg2));
 		}
 		else {
-			CRPG::ChatAreaMsg(player->index, "You have new credits (%ld total). Type \"rpgmenu\" to buy upgrades.", player->credits);
+			CRPG::ChatAreaMsg(player->index, TXTDB(player, newlvl.msg2), player->credits);
 		}
 	}
 	else {
@@ -132,7 +133,7 @@ void CRPG_StatsManager::add_exp(CRPG_Player *player, unsigned long exp, char hid
 	player->exp += exp;
 
 	if(exp_notice && !hidenotice)
-		CRPG::HintTextMsg(player->index, "Experience Gained: %ld+\nExperience Quota: %ld/%ld", exp, player->exp, exp_req);
+		CRPG::HintTextMsg(player->index, TXTDB(player, exphint.msg1), exp, player->exp, exp_req);
 
 	if(player->exp >= exp_req)
 		player_new_lvl(player, calc_lvl_inc(player->level, player->exp));
@@ -418,18 +419,14 @@ void CRPG_RankManager::FreeRanksList(struct ranklist **ranks) {
 }
 
 void CRPG_RankManager::ChatAreaRank(CRPG_Player *player, int sendto) {
-	char msg[1024];
-
 	WARN_IF(player == NULL, return)
 
-	Q_snprintf(msg, 1024, "%s is Level %ld, ranked %ld/%ld with %ld/%ld Experience and %ld Credits",
-		player->name(), player->level, CRPG_RankManager::GetPlayerRank(player), CRPG_RankManager::GetRankCount(),
-		player->exp, CRPG_StatsManager::LvltoExp(player->level), player->credits);
-
 	if(sendto == -1)
-		CRPG::ChatAreaMsg(0, msg);
+		CRPG::ChatAreaMsg(0, TXTDB_ID(rpgrank.msg1), player->name(), player->level, CRPG_RankManager::GetPlayerRank(player), CRPG_RankManager::GetRankCount(),
+			player->exp, CRPG_StatsManager::LvltoExp(player->level), player->credits);
 	else
-		CRPG::ChatAreaMsg(sendto, msg);
+		CRPG::ChatAreaMsg(sendto, TXTDB_ID(rpgrank.msg1), player->name(), player->level, CRPG_RankManager::GetPlayerRank(player), CRPG_RankManager::GetRankCount(),
+			player->exp, CRPG_StatsManager::LvltoExp(player->level), player->credits);
 
 	return ;
 }
@@ -486,5 +483,5 @@ void CRPG_TeamBalance::RoundEnd(void) {
 	if(!enable || !teamt_total || !teamct_total || (teamt_total == teamct_total))
 		return ;
 
-	lvldiff = abs(teamt_total-teamct_total);
+	lvldiff = abs((int)teamt_total-(int)teamct_total);
 }

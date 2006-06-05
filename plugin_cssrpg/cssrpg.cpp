@@ -37,6 +37,7 @@
 #include "cssrpg_menu.h"
 #include "cssrpg_console.h"
 #include "cssrpg_database.h"
+#include "cssrpg_textdb.h"
 
 #include "items/rpgi.h"
 #include "items/rpgi_regen.h"
@@ -152,7 +153,8 @@ void CRPG::init_item_types(void) {
 	return ;
 }
 
-char *player_cols[] = {
+#define PLAYER_COL_COUNT 9
+char *player_cols[PLAYER_COL_COUNT] = {
 	"player_id INTEGER PRIMARY KEY",
 	"name TEXT DEFAULT ' '",
 	"steamid TEXT DEFAULT '0'",
@@ -160,10 +162,10 @@ char *player_cols[] = {
 	"exp INTEGER DEFAULT '0'",
 	"credits INTEGER DEFAULT '0'",
 	"lastseen INTEGER DEFAULT '0'",
+	"language TEXT DEFAULT ' '",
 	"items_id INTEGER DEFAULT '-1'"
 };
-char *player_col_types[] = {"player_id", "name", "steamid", "level", "exp", "credits", "lastseen", "items_id"};
-unsigned int player_col_count = 8;
+char *player_col_types[PLAYER_COL_COUNT] = {"player_id", "name", "steamid", "level", "exp", "credits", "lastseen", "language", "items_id"};
 void CRPG::init_database(void) {
 	unsigned int i, result;
 	char *str;
@@ -173,20 +175,20 @@ void CRPG::init_database(void) {
 	if(!result) {
 		str = new char[1024];
 		memset(str, 0, 1024);
-		for(i = 0;i < player_col_count;i++) {
+		for(i = 0;i < PLAYER_COL_COUNT;i++) {
 			if(i)
-				sprintf(str, "%s, %s", str, player_cols[i]);
+				Q_snprintf(str, 1024, "%s, %s", str, player_cols[i]);
 			else
-				sprintf(str, "%s", player_cols[i]);
+				Q_snprintf(str, 1024, "%s", player_cols[i]);
 		}
 
 		db->Query("CREATE TABLE %s (%s)", TBL_PLAYERS, str);
 		delete[] str;
 	}
 	else if(result == 1) {
-		for(i = 1;i < player_col_count;i++) {
+		for(i = 1;i < PLAYER_COL_COUNT;i++) {
 			if(!db->ColExists(player_col_types[i], TBL_PLAYERS))
-				db->Query("ALTER TABLE %s ADD COLUMN %s INTEGER", TBL_PLAYERS, player_cols[i]);
+				db->Query("ALTER TABLE %s ADD COLUMN %s", TBL_PLAYERS, player_cols[i]);
 		}
 	}
 
@@ -194,9 +196,9 @@ void CRPG::init_database(void) {
 	if(!result) {
 		str = new char[1024];
 		memset(str, 0, 1024);
-		sprintf(str, "items_id INTEGER PRIMARY KEY");
+		Q_snprintf(str, 1024, "items_id INTEGER PRIMARY KEY");
 		for(i = 0;i < ITEM_COUNT;i++)
-			sprintf(str, "%s, %s INTEGER DEFAULT '0'", str, CRPG::item_types[i].shortname);
+			Q_snprintf(str, 1024, "%s, %s INTEGER DEFAULT '0'", str, CRPG::item_types[i].shortname);
 
 		db->Query("CREATE TABLE %s (%s)", TBL_ITEMS, str);
 		delete[] str;
@@ -361,12 +363,13 @@ CRPG_Player* CRPG_Player::AddPlayer(edict_t *e) {
 		player->name(), player->index, player->userid, player->steamid());
 
 	player->credits = credits_start;
+	player->lang = CRPG_TextDB::deflang;
 	player->LoadData(1);
 
 	for(i = 0;i < ITEM_COUNT;i++) {
 		maxlevel = CRPG::item_types[i].maxlevel;
 		while(player->items[i].level > maxlevel) {
-			/* Give player their credit's back */
+			/* Give player their credits back */
 			/* TakeItem isn't necessary since the player hasn't even been completely added yet */
 			player->credits += CRPGI::GetItemCost(i, player->items[i].level--);
 		}
@@ -395,18 +398,21 @@ void CRPG_Player::InsertPlayer(void) {
 		TBL_PLAYERS, this->name(), this->steamid(), this->level, this->exp, this->credits, time(NULL));
 	this->dbinfo.player_id = CRPG::db->GetInsertKey();
 
+	if(this->lang_is_set)
+		CRPG::db->Query("UPDATE %s SET language = '%s' WHERE player_id = '%d'", TBL_PLAYERS, this->lang->file->name, this->dbinfo.player_id);
+
 	char *str1 = new char[1024], *str2 = new char[1024];
 	memset(str1, 0, 1024);
 	memset(str2, 0, 1024);
 
 	for(i = 0;i < ITEM_COUNT;i++) {
 		if(i) {
-			sprintf(str1, "%s, %s", str1, CRPG::item_types[i].shortname);
-			sprintf(str2, "%s, '0'", str2);
+			Q_snprintf(str1, 1024, "%s, %s", str1, CRPG::item_types[i].shortname);
+			Q_snprintf(str2, 1024, "%s, '0'", str2);
 		}
 		else {
-			sprintf(str1, "%s", CRPG::item_types[i].shortname);
-			sprintf(str2, "'0'");
+			Q_snprintf(str1, 1024, "%s", CRPG::item_types[i].shortname);
+			Q_snprintf(str2, 1024, "'0'");
 		}
 	}
 
@@ -460,6 +466,21 @@ void CRPG_Player::LoadData(char init) {
 	this->exp = atoi(GetCell(result, "exp"));
 	this->credits = atoi(GetCell(result, "credits"));
 
+	if(!strcmp(GetCell(result, "language"), " ") || !strcmp(GetCell(result, "language"), "0")) {
+		this->lang = FiletoTextDB(default_lang);
+
+		if(this->lang == NULL)
+			this->lang = CRPG_TextDB::deflang;
+	}
+	else {
+		this->lang = FiletoTextDB(GetCell(result, "language"));
+
+		if(this->lang == NULL)
+			this->lang = CRPG_TextDB::deflang;
+		else
+			this->lang_is_set = 1;
+	}
+
 	FreeResult(result);
 
 	/* Player Items */
@@ -503,8 +524,11 @@ void CRPG_Player::SaveData(void) {
 	}
 
 	set_str = (char*)calloc(1024, sizeof(char));
-	sprintf(set_str, "level = '%ld', exp = '%ld', credits = '%ld', lastseen = '%ld'",
+	Q_snprintf(set_str, 1024, "level = '%ld', exp = '%ld', credits = '%ld', lastseen = '%ld'",
 		this->level, this->exp, this->credits, time(NULL));
+
+	if(this->lang_is_set)
+		Q_snprintf(set_str, 1024, "%s, language = '%s'", set_str, this->lang->file->name);
 
 	result = CRPG::db->Query("UPDATE %s SET %s WHERE player_id = '%d'",
 		TBL_PLAYERS, set_str, this->dbinfo.player_id);
@@ -515,9 +539,9 @@ void CRPG_Player::SaveData(void) {
 	memset(set_str, 0, 1024);
 	for(i = 0;i < ITEM_COUNT;i++) {
 		if(i)
-			sprintf(set_str, "%s, %s = '%d'", set_str, CRPG::item_types[i].shortname, this->items[i].level);
+			Q_snprintf(set_str, 1024, "%s, %s = '%d'", set_str, CRPG::item_types[i].shortname, this->items[i].level);
 		else
-			sprintf(set_str, "%s = '%d'", CRPG::item_types[i].shortname, this->items[i].level);
+			Q_snprintf(set_str, 1024, "%s = '%d'", CRPG::item_types[i].shortname, this->items[i].level);
 	}
 
 	result = CRPG::db->Query("UPDATE %s SET %s WHERE items_id = '%d'",

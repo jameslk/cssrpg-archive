@@ -21,7 +21,7 @@
 #define CSSRPG_VERSION "1.0.3"
 
 #define CSSRPG_DB "cssrpg.db"
-/* Columns: [int player_id] [string name] [string steamid] [int level] [int exp] [int credits] [int lastseen] [int items_id] */
+/* Columns: [int player_id] [string name] [string steamid] [int level] [int exp] [int credits] [int lastseen] [language] [int items_id] */
 #define TBL_PLAYERS "players"
 /* Columns: [int items_id] [regen] [hbonus] [...] */
 #define TBL_ITEMS "items"
@@ -64,9 +64,12 @@ public:
 	static bool debug_mode;
 	static bool save_data;
 	static bool steamid_save;
+	static char default_lang[256];
 	static unsigned int save_interval;
 	static unsigned int player_expire;
 	static bool announce_newlvl;
+	
+	static unsigned int icestab_lmtdmg;
 
 	static bool exp_notice;
 	static unsigned int exp_max;
@@ -117,6 +120,7 @@ enum cssteam_t {team_ct, team_t, team_none};
 class IPlayerInfo;
 class CBasePlayer;
 class CRPG_Timer;
+class CRPG_TextDB;
 class CRPG_Player: public CRPG_PlayerClass<CRPG_Player>, private CRPG_GlobalSettings {
 public:
 	/* Public Variables */
@@ -142,8 +146,11 @@ public:
 		char isdead;
 	} css;
 
+	CRPG_TextDB *lang; /* Language for this player */
+	char lang_is_set; /* Whether or not ths user has set his/her langauge */
+
 	/* Public Functions */
-	CRPG_Player(): level(1), exp(0), credits(0) {
+	CRPG_Player(): level(1), exp(0), credits(0), lang(NULL), lang_is_set(0) {
 		unsigned int i = ITEM_COUNT;
 		while(i--) {
 			items[i].type = &CRPG::item_types[i];
