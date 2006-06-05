@@ -104,6 +104,7 @@
 #include "cssrpg_console.h"
 #include "cssrpg_hacks.h"
 #include "cssrpg_database.h"
+#include "cssrpg_textdb.h"
 
 #include "items/rpgi.h"
 #include "items/rpgi_hbonus.h"
@@ -344,6 +345,9 @@ void CPluginCSSRPG::LevelInit(char const *pMapName) {
 	gameeventmanager->AddListener(this, "player_hurt", true);
 	gameeventmanager->AddListener(this, "player_jump", true);
 	gameeventmanager->AddListener(this, "item_pickup", true);
+	gameeventmanager->AddListener(this, "hegrenade_detonate", true);
+	gameeventmanager->AddListener(this, "flashbang_detonate", true);
+	gameeventmanager->AddListener(this, "smokegrenade_detonate", true);
 	gameeventmanager->AddListener(this, "player_spawn", true);
 	gameeventmanager->AddListener(this, "player_death", true);
 	gameeventmanager->AddListener(this, "player_say", true);
@@ -381,6 +385,16 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 		esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
 	}
 
+	if(!esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard1.wav")) {
+		esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard2.wav")) {
+		esounds->PrecacheSound("physics/glass/glass_impact_bullet2.wav", true);
+	}
+	if(!esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard3.wav")) {
+		esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
+	}
+
 	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet1.wav")) {
 		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet1.wav", true);
 	}
@@ -394,7 +408,12 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet4.wav", true);
 	}
 
+	if(!esounds->IsSoundPrecached("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav")) {
+		esounds->PrecacheSound("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav", true);
+	}
+
 	CRPG_Utils::Init();
+	CRPG_TextDB::Init();
 	CRPG_Player::Init();
 	CRPG_Menu::Init();
 
@@ -437,6 +456,7 @@ void CPluginCSSRPG::LevelShutdown(void) { // !!!!this can get called multiple ti
 		CRPG_Player::ShutDown();
 		CRPG_Menu::ShutDown();
 		CRPGI::ShutDown();
+		CRPG_TextDB::ShutDown();
 		is_shutdown = 1;
 	}
 
@@ -448,8 +468,9 @@ void CPluginCSSRPG::LevelShutdown(void) { // !!!!this can get called multiple ti
 //---------------------------------------------------------------------------------
 void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	int index = CRPG::EdicttoIndex(pEntity);
+	CRPG_Player *player;
 
-	CRPG_Player::AddPlayer(pEntity);
+	player = CRPG_Player::AddPlayer(pEntity);
 	CRPGI_HBonus::AddPlayer(pEntity);
 
 	if(CRPG::IsValidIndex(index)) {
@@ -457,7 +478,7 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 			return ;
 
 		CRPG::ChatAreaMsg(index, "\x01This server is running CSS:RPG v%s (\x04http://cssrpg.sf.net\x01).", CSSRPG_VERSION);
-		CRPG::ChatAreaMsg(index, "Type \"rpgmenu\" to bring up your options.");
+		CRPG::ChatAreaMsg(index, TXTDB(player, greeting.msg1));
 
 		CRPGI_Stealth::SetVisibilities();
 	}
@@ -628,6 +649,7 @@ PLUGIN_RESULT CPluginCSSRPG::NetworkIDValidated(const char *pszUserName, const c
 //---------------------------------------------------------------------------------
 void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	const char *name = event->GetName();
+	const unsigned int name_len = strlen(name);
 
 	if(FStrEq(name, "player_hurt")) {
 		CRPG_Player *attacker = UserIDtoRPGPlayer(event->GetInt("attacker"));
@@ -639,6 +661,8 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			return ;
 
 		WARN_IF(victim == NULL, return)
+
+		CRPGI_IceStab::LimitDamage(victim, &dmg_health, (char*)weapon); /* limit damage to prevent lame headshots */
 
 		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
@@ -657,6 +681,12 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		WARN_IF(player == NULL, return)
 
 		CRPGI_Denial::ItemPickup(player, (char*)event->GetString("item"));
+	}
+	else if(CRPG::memrcmp((void*)(name+name_len), (void*)("detonate"+8), 9)) {
+		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
+		WARN_IF(player == NULL, return)
+
+		CRPGI_Denial::NadeDetonate(player, (char*)name);
 	}
 	else if(FStrEq(name, "player_spawn")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
@@ -752,6 +782,15 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			menu->header = 0; /* turn off Credits header */
 			menu->CreateMenu();
 		}
+
+		/* So I was bored... */
+		else if(FStrEq(text, "gaben")) {
+			CRPG_Player *player = UserIDtoRPGPlayer(userid);
+			if(player == NULL)
+				return ;
+
+			CRPG::EmitSound(player->index, "npc/overwatch/cityvoice/fprison_missionfailurereminder.wav");
+		}
 	}
 	else if(FStrEq(name, "round_start")) {
 		CRPGI_Denial::round_end = 0;
@@ -778,6 +817,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	}
 	else if(FStrEq(name, "player_team")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
+		CRPGI_Denial *dn;
 		int team;
 
 		if(player == NULL) /* don't warn */
@@ -809,6 +849,11 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 				CRPG_TeamBalance::teamct_count--;
 
 			player->css.team = team_none;
+		}
+
+		dn = IndextoDenial(player->index);
+		if(dn != NULL) { /* don't warn */
+			dn->ResetItems();
 		}
 
 		CRPG_TeamBalance::roundend_check = 1;
