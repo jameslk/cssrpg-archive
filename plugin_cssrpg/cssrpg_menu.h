@@ -18,6 +18,53 @@
 #ifndef CSSRPG_MENU_H
 #define CSSRPG_MENU_H
 
+#include "cssrpg_misc.h"
+class CRPG_Menu;
+class CRPG_MenuOptions: public CRPG_DynLinkedList<CRPG_MenuOptions> {
+private:
+	/* Private Variables */
+	CRPG_Menu *menu;
+	char output[1024];
+
+	/* Private Functions */
+	static void update_options(CRPG_Menu *menu);
+
+public:
+	/* Public Variables */
+	char str[1024];
+	int index;
+	int page_index;
+	char enabled;
+
+	int page;
+	int nextpage;
+	int prevpage;
+
+	struct {
+		char s[256];
+		int i;
+		float f;
+		void *p;
+	} data; /* option data */
+
+	/* Public Functions */
+	CRPG_MenuOptions(): index(1), page_index(1), enabled(1), page(1) {
+		memset(str, '\0', 1024);
+		memset(&data, '\0', sizeof(data));
+	}
+
+	~CRPG_MenuOptions() {
+		if(str != NULL)
+			free(str);
+	}
+
+	static CRPG_MenuOptions* AddOption(CRPG_Menu *opt_menu, char opt_enabled, char *strf, ...); /* Add option to end */
+	static CRPG_MenuOptions* PageIndextoOpt(CRPG_Menu *menu, int opt_page, int opt_index);
+	char* MakeOutputStr(void);
+	void DelOption(void);
+	void FreeOptions(void);
+};
+
 enum submenu_t {
 	/* Default RPG Menu submenus */
 	none, upgrades, sell, stats, settings, help,
@@ -26,10 +73,17 @@ enum submenu_t {
 };
 
 #include "cssrpg.h"
-#include "cssrpg_misc.h"
 class CRPG_Menu: public CRPG_PlayerClass<CRPG_Menu>, private CRPG_GlobalSettings {
 	/* Private Variables */
-	void *data; /* menu to menu data */
+	struct {
+		char s[256];
+		int ia;
+		int ib;
+		int ic;
+		float f;
+		void *p;
+	} data; /* menu to menu data */
+
 	char menu_out[200];
 	int menu_outlen;
 
@@ -58,13 +112,17 @@ public:
 	static unsigned int menu_count;
 
 	submenu_t submenu;
+	CRPG_MenuOptions *opt_first;
+	CRPG_MenuOptions *opt_last;
+	unsigned int opt_count;
 	int page;
 	unsigned int options;
 
 	char header; /* Show the Credits header for this menu (on by default) */
 
 	/* Public Functions */
-	CRPG_Menu(): data(NULL), menu_outlen(0), submenu(none), page(0), options(0), header(1) {
+	CRPG_Menu(): menu_outlen(0), submenu(none), opt_first(NULL), opt_last(NULL), opt_count(0), page(0), options(0), header(1) {
+		memset(&data, 0, sizeof(data));
 		index = 0;
 		userid = 0;
 	}

@@ -31,6 +31,7 @@
 
 #include "MRecipientFilter.h"
 #include "cssrpg.h"
+#include "cssrpg_textdb.h"
 #include "cssrpg_menu.h"
 
 #include "items/rpgi.h"
@@ -42,14 +43,109 @@
 extern IVEngineServer *engine;
 
 /*	//////////////////////////////////////
+	CRPG_MenuOptions Class 
+	////////////////////////////////////// */
+void CRPG_MenuOptions::update_options(CRPG_Menu *menu) {
+	CRPG_MenuOptions *opt;
+	unsigned int i = 1;
+
+	WARN_IF(menu == NULL, return)
+
+	for(opt = menu->opt_first;opt != NULL;opt = opt->ll_next, i++) {
+		opt->index = i;
+		opt->page = i / 8;
+
+		if(((int)menu->opt_count-(int)opt->index) >= 1)
+			opt->nextpage = opt->page+1;
+		else
+			opt->nextpage = -1;
+
+		if(opt->index > 7)
+			opt->prevpage = opt->page-1;
+		else
+			opt->prevpage = -1;
+
+		if((opt->ll_prev == NULL) || (opt->ll_prev->page_index >= 7))
+			opt->page_index = 1;
+		else
+			opt->page_index = opt->ll_prev->page_index+1;
+	}
+
+	return ;
+}
+
+CRPG_MenuOptions* CRPG_MenuOptions::AddOption(CRPG_Menu *opt_menu, char opt_enabled, char *strf, ...) {
+	CRPG_MenuOptions *opt;
+	va_list ap;
+
+	WARN_IF(opt_menu == NULL, return NULL)
+	WARN_IF((strf == NULL) || !*strf, return NULL)
+
+	opt = new CRPG_MenuOptions();
+
+	opt->menu = opt_menu;
+
+	va_start(ap, strf);
+	Q_vsnprintf(opt->str, 1024, strf, ap);
+	va_end(ap);
+
+	opt->enabled = (opt_enabled ? 1 : 0);
+
+	opt->assign_pointers(&opt_menu->opt_first, &opt_menu->opt_last, &opt_menu->opt_count);
+	opt->ll_add();
+	update_options(opt_menu);
+
+	return opt;
+}
+
+CRPG_MenuOptions* CRPG_MenuOptions::PageIndextoOpt(CRPG_Menu *menu, int opt_page, int opt_page_index) {
+	CRPG_MenuOptions *opt;
+
+	WARN_IF(menu == NULL, return NULL)
+
+	for(opt = menu->opt_first;opt != NULL;opt = opt->ll_next) {
+		if((opt->page == opt_page) && (opt->page_index == opt_page_index))
+			return opt;
+	}
+
+	return NULL;
+}
+
+char* CRPG_MenuOptions::MakeOutputStr(void) {
+	memset(this->output, '\0', 1024);
+
+	if(this->enabled)
+		Q_snprintf(this->output, 1024, "->%d. %s", this->page_index, this->str);
+	else
+		Q_snprintf(this->output, 1024, "%d. %s", this->page_index, this->str);
+
+	return this->output;
+}
+
+void CRPG_MenuOptions::DelOption(void) {
+	CRPG_Menu *opt_menu = this->menu;
+	this->ll_del();
+	delete this;
+
+	update_options(opt_menu);
+	return ;
+}
+
+void CRPG_MenuOptions::FreeOptions() {
+	CRPG_MenuOptions *opt, *next;
+
+	for(opt = menu->opt_first;opt != NULL;opt = next) {
+		next = opt->ll_next;
+		opt->ll_del();
+		delete opt;
+	}
+
+	return ;
+}
+
+/*	//////////////////////////////////////
 	CRPG_Menu Class 
 	////////////////////////////////////// */
-#define MSG_STATS_RESET "Your stats have been successfully reset."
-#define MSG_MAX_LVL "You have reached the maximum level for this item."
-#define MSG_CREDITS "You do not have enough credits to buy %s Lvl %d. (Requires %d Credits)"
-#define MSG_ITEM_BOUGHT "%s Lvl %ld successfully purchased."
-#define MSG_ITEM_SOLD "%s Lvl %ld has been sold."
-
 #define LVL_STR "Lvl %ld"
 #define LVL_MAX "Lvl MAX"
 #define CR_STR "[%s: %ld]"
@@ -64,7 +160,9 @@ char temp_out[1024];
 
 void CRPG_Menu::GetUpgradesPage(void) {
 	CRPG_Player *player;
-	unsigned int i, index, offset, lvl;
+	unsigned int i, lvl;
+	CRPG_MenuOptions *opt, *temp;
+	key_t *key;
 
 	player = IndextoRPGPlayer(this->index);
 	if(player == NULL) {
@@ -72,39 +170,56 @@ void CRPG_Menu::GetUpgradesPage(void) {
 		return ;
 	}
 
-	for(i = 0, index = (page*7), offset = 0;(i < 7) && (index < ITEM_COUNT);i++, index++) {
-		if(!CRPG::item_types[index].enable) {
-			offset++;
-			continue;
-		}
+	if(!this->opt_count) {
+		for(i = 0;i < ITEM_COUNT;i++) {
+			if(!CRPG::item_types[i].enable)
+				continue;
 
-		if(i-offset) BuildOutput(0, "\n");
-		lvl = player->items[index].level;
-		if(lvl >= CRPG::item_types[index].maxlevel) {
-			Q_snprintf(temp_out, 1024, "%d. %s %s %s", (i+1)-offset, CRPG::item_types[index].name, LVL_MAX, CR_MAX);
-			BuildOutput(0, temp_out, "Cost");
+			key = player->lang->NametoKey("items.%s", CRPG::item_types[i].shortname);
+			WARN_IF(key == NULL, continue)
+
+			lvl = player->items[i].level;
+			if(lvl >= CRPG::item_types[i].maxlevel) {
+				Q_snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_MAX, CR_MAX);
+				opt = CRPG_MenuOptions::AddOption(this, 0, temp_out, TXTDB(player, menu_txt.cost));
+			}
+			else {
+				Q_snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_STR, CR_STR);
+				opt = CRPG_MenuOptions::AddOption(this, 1, temp_out, lvl+1, TXTDB(player, menu_txt.cost), CRPGI::GetItemCost(i, lvl+1));
+			}
+
+			WARN_IF(opt == NULL, continue)
+			opt->data.i = CRPG::item_types[i].index;
 		}
-		else {
-			Q_snprintf(temp_out, 1024, "->%d. %s %s %s", (i+1)-offset, CRPG::item_types[index].name, LVL_STR, CR_STR);
-			if(!lvl)
-				BuildOutput(0, temp_out, lvl+1, "Cost", CRPGI::GetItemCost(index, lvl+1));
-			else
-				BuildOutput(0, temp_out, lvl+1, "Cost", CRPGI::GetItemCost(index, lvl+1));
-		}
-		this->SetOptions((i+1)-offset);
 	}
 
-	if(!page) {
-		BuildOutput(0, "\n8. Previous\n->9. Next");
+	if(!this->opt_count) {
+		BuildOutput(0, TXTDB(player, menu_misc.no_items));
+		return ;
+	}
+
+	for(opt = this->opt_first;opt != NULL;opt = opt->ll_next) {
+		if(opt->page == this->page) {
+			if(opt->page_index > 1)
+				BuildOutput(0, "\n");
+
+			temp = opt;
+			BuildOutput(0, opt->MakeOutputStr());
+			SetOptions(opt->page_index);
+		}
+	}
+
+	if((temp->prevpage < 0) && (temp->nextpage >= 0)) {
+		BuildOutput(0, "\n8. %s\n->9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
 		this->SetOptions(9);
 	}
-	else if(i < 7) {
-		BuildOutput(0, "\n->8. Previous\n9. Next");
+	else if((temp->prevpage >= 0) && (temp->nextpage < 0)) {
+		BuildOutput(0, "\n->8. %s\n9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
 		this->SetOptions(8);
-		this->data = (void*)1;
+		this->data.ia = 1;
 	}
-	else {
-		BuildOutput(0, "\n->8. Previous\n->9. Next");
+	else if((temp->prevpage >= 0) && (temp->nextpage >= 0)) {
+		BuildOutput(0, "\n->8. %s\n->9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
 		this->SetOptions(8);
 		this->SetOptions(9);
 	}
@@ -114,65 +229,50 @@ void CRPG_Menu::GetUpgradesPage(void) {
 
 void CRPG_Menu::UpgradesSelect(unsigned int option) {
 	CRPG_Player *player;
-	int offset;
-	unsigned int i, max, credits, lvl, cost;
-	struct item_type *item;
+	CRPG_MenuOptions *opt;
+	unsigned int credits, lvl, cost;
+	struct item_type *item = NULL;
 
 	if(option == 8) {
 		if(this->page)
 			this->page--;
-		this->data = 0;
+		this->data.ia = 0;
 		this->CreateMenu();
 		return ;
 	}
 	else if(option == 9) {
-		if(!this->data)
+		if(!this->data.ia)
 			this->page++;
 		this->CreateMenu();
 		return ;
 	}
 
-	option += page*7;
-	if(option > ITEM_COUNT) {
-		this->DelMenu();
-		return ;
-	}
-
-	max = (page*7)+7;
-	for(i = (page*7), offset = 0;i < max;i++) {
-		if(!CRPG::item_types[i].enable) {
-			offset++;
-			continue;
-		}
-
-		if(option == ((i+1)-offset)) {
-			option = i;
-			offset = -1;
-			break;
+	for(opt = this->opt_first;opt != NULL;opt = opt->ll_next) {
+		if(opt->page == this->page) {
+			if(option == opt->page_index) {
+				item = &CRPG::item_types[opt->data.i];
+				break;
+			}
 		}
 	}
 
-	if(offset != -1) {
-		this->DelMenu();
-		return ;
-	}
+	WARN_IF(item == NULL, this->DelMenu(); return)
 
 	player = IndextoRPGPlayer(this->index);
 	credits = player->credits;
-	lvl = player->items[option].level;
-	item = &CRPG::item_types[option];
+	lvl = player->items[item->index].level;
 	
-	cost = CRPGI::GetItemCost(option, lvl+1);
+	cost = CRPGI::GetItemCost(item->index, lvl+1);
 
 	if(lvl >= item->maxlevel) {
-		CRPG::ChatAreaMsg(this->index, MSG_MAX_LVL);
+		CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.max_lvl));
 	}
 	else if(credits < cost) {
-		CRPG::ChatAreaMsg(this->index, MSG_CREDITS, item->name, lvl+1, cost);
+		CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.not_enough_credits), item->name, lvl+1, cost);
 	}
 	else {
-		player->BuyItem(option);
-		CRPG::ChatAreaMsg(this->index, MSG_ITEM_BOUGHT, item->name, lvl+1);
+		player->BuyItem(item->index);
+		CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.item_bought), item->name, lvl+1);
 	}
 
 	this->DelMenu();
@@ -181,7 +281,9 @@ void CRPG_Menu::UpgradesSelect(unsigned int option) {
 
 void CRPG_Menu::GetSellPage(void) {
 	CRPG_Player *player;
-	unsigned int i, index, offset;
+	unsigned int i;
+	CRPG_MenuOptions *opt, *temp;
+	key_t *key;
 
 	player = IndextoRPGPlayer(this->index);
 	if(player == NULL) {
@@ -189,41 +291,57 @@ void CRPG_Menu::GetSellPage(void) {
 		return ;
 	}
 
-	if(this->data != NULL) {
-		BuildOutput(0, "Are you sure?\n->1. Yes\n->2. No");
+	if(this->data.ia) {
+		BuildOutput(0, "%s\n->1. %s\n->2. %s", TXTDB(player, menu_confirm.sell_confirm),
+			TXTDB(player, menu_opt.yes), TXTDB(player, menu_opt.no));
 		this->options = 0;
 		this->SetOptions(1, 2);
 		return ;
 	}
 
-	for(i = 0, index = (page*7), offset = 0;(i < 7) && (index < ITEM_COUNT);i++, index++) {
-		if(!player->items[index].level || !CRPG::item_types[index].enable) {
-			offset++;
-			continue;
+	if(!this->opt_count) {
+		for(i = 0;i < ITEM_COUNT;i++) {
+			if(!player->items[i].level || !CRPG::item_types[i].enable)
+				continue;
+
+			key = player->lang->NametoKey("items.%s", CRPG::item_types[i].shortname);
+			WARN_IF(key == NULL, continue)
+
+			Q_snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_STR, CR_STR);
+			opt = CRPG_MenuOptions::AddOption(this, 1, temp_out,
+				player->items[i].level, TXTDB(player, menu_txt.sale), CRPGI::GetItemSale(i, player->items[i].level));
+
+			WARN_IF(opt == NULL, continue)
+			opt->data.i = CRPG::item_types[i].index;
 		}
-
-		if(i-offset) BuildOutput(0, "\n");
-		Q_snprintf(temp_out, 1024, "->%d. %s %s %s",
-			(i+1)-offset, CRPG::item_types[index].name, LVL_STR, CR_STR);
-		BuildOutput(0, temp_out, player->items[index].level, "Sale", CRPGI::GetItemSale(index, player->items[index].level));
-		this->SetOptions((i+1)-offset);
 	}
 
-	if(i == offset) {
-		BuildOutput(0, "No items available.");
-		this->SetOptions(0, 0);
+	if(!this->opt_count) {
+		BuildOutput(0, TXTDB(player, menu_misc.no_items));
+		return ;
 	}
 
-	if(!page) {
-		BuildOutput(0, "\n8. Previous\n->9. Next");
+	for(opt = this->opt_first;opt != NULL;opt = opt->ll_next) {
+		if(opt->page == this->page) {
+			if(opt->page_index > 1)
+				BuildOutput(0, "\n");
+
+			temp = opt;
+			BuildOutput(0, opt->MakeOutputStr());
+			SetOptions(opt->page_index);
+		}
+	}
+
+	if((temp->prevpage < 0) && (temp->nextpage >= 0)) {
+		BuildOutput(0, "\n8. %s\n->9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
 		this->SetOptions(9);
 	}
-	else if(i < 7) {
-		BuildOutput(0, "\n->8. Previous\n9. Next");
+	else if((temp->prevpage >= 0) && (temp->nextpage < 0)) {
+		BuildOutput(0, "\n->8. %s\n9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
 		this->SetOptions(8);
 	}
-	else {
-		BuildOutput(0, "\n->8. Previous\n->9. Next");
+	else if((temp->prevpage >= 0) && (temp->nextpage >= 0)) {
+		BuildOutput(0, "\n->8. %s\n->9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
 		this->SetOptions(8);
 		this->SetOptions(9);
 	}
@@ -232,34 +350,31 @@ void CRPG_Menu::GetSellPage(void) {
 }
 
 void CRPG_Menu::SellSelect(unsigned int option) {
-	int i, offset, max;
 	CRPG_Player *player;
+	CRPG_MenuOptions *opt;
+	struct item_type *item = NULL;
 
 	player = IndextoRPGPlayer(this->index);
-	WARN_IF(player == NULL, return)
+	WARN_IF(player == NULL, this->DelMenu(); return)
 
-	if(option > ITEM_COUNT) {
-		this->DelMenu();
-		return ;
-	}
-
-	if(this->data == NULL) {
+	if(!this->data.ia) {
 		/* Player selected to sell an item */
 
 		if(option == 8) {
 			if(this->page)
 				this->page--;
-			this->data = 0;
+			this->data.ia = 0;
 			this->CreateMenu();
 			return ;
 		}
 		else if(option == 9) {
-			this->page++;
+			if(!this->data.ia)
+				this->page++;
 			this->CreateMenu();
 			return ;
 		}
 
-		this->data = (void*)option;
+		this->data.ia = option;
 		this->CreateMenu();
 	}
 	else {
@@ -269,34 +384,20 @@ void CRPG_Menu::SellSelect(unsigned int option) {
 			return ;
 		}
 
-		option = (unsigned int)this->data+(page*7);
-		if(option > ITEM_COUNT) {
-			this->DelMenu();
-			return ;
-		}
-
-		max = (page*7)+7;
-		for(i = (page*7), offset = 0;i < max;i++) {
-			if(!player->items[i].level || !CRPG::item_types[i].enable) {
-				offset++;
-				continue;
-			}
-
-			if(option == ((i+1)-offset)) {
-				option = i;
-				offset = -1;
-				break;
+		for(opt = this->opt_first;opt != NULL;opt = opt->ll_next) {
+			if(opt->page == this->page) {
+				if(this->data.ia == opt->page_index) {
+					item = &CRPG::item_types[opt->data.i];
+					break;
+				}
 			}
 		}
 
-		if(offset != -1) {
-			this->DelMenu();
-			return ;
-		}
+		WARN_IF(item == NULL, this->DelMenu(); return)
 
 		/* Item sold */
-		player->SellItem(option);
-		CRPG::ChatAreaMsg(this->index, MSG_ITEM_SOLD, CRPG::item_types[option].name, player->items[option].level+1);
+		player->SellItem(item->index);
+		CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.item_sold), item->name, player->items[item->index].level+1);
 		this->DelMenu();
 	}
 
@@ -311,10 +412,10 @@ void CRPG_Menu::GetStatsPage(void) {
 		return ;
 	}
 
-	BuildOutput(0, "->1. Level: %ld", player->level);
-	BuildOutput(0, "\n->2. Exp: %ld/%ld", player->exp, CRPG_StatsManager::LvltoExp(player->level));
-	BuildOutput(0, "\n->3. Credits: %ld", player->credits);
-	BuildOutput(0, "\n->4. Rank: %ld/%ld",
+	BuildOutput(0, "->1. %s: %ld", TXTDB(player, menu_txt.level), player->level);
+	BuildOutput(0, "\n->2. %s: %ld/%ld", TXTDB(player, menu_txt.exp_short), player->exp, CRPG_StatsManager::LvltoExp(player->level));
+	BuildOutput(0, "\n->3. %s: %ld", TXTDB(player, menu_txt.credits), player->credits);
+	BuildOutput(0, "\n->4. %s: %ld/%ld", TXTDB(player, menu_txt.rank),
 		CRPG_RankManager::GetPlayerRank(player), CRPG_RankManager::GetRankCount());
 
 	SetOptions(1, 2, 3, 4, 5, 6, 7, 8, 9);
@@ -322,46 +423,145 @@ void CRPG_Menu::GetStatsPage(void) {
 }
 
 void CRPG_Menu::GetSettingsPage(void) {
+	CRPG_TextDB *txtdb;
+	CRPG_MenuOptions *opt, *temp;
+	CRPG_Player *player = IndextoRPGPlayer(this->index);;
+	unsigned int i = 0;
+
 	this->options = 0;
 
-	if(this->data != NULL) {
-		BuildOutput(0, "WARNING: You will lose all Levels, Credits, and Experience.\n");
-		BuildOutput(0, "Reset stats permanently?\n->1. Yes\n->2. No");
-		this->SetOptions(1, 2);
-		return ;
-	}
+	if(this->data.ia == 1) {
+		if(!this->opt_count) {
+			WARN_IF(player == NULL, this->DelMenu(); return)
 
-	BuildOutput(0, "->1. Reset Stats");
-	this->SetOptions(1);
+			for(txtdb = CRPG_TextDB::ll_first;txtdb != NULL;txtdb = txtdb->ll_next) {
+				if(!txtdb->hidden) {
+					if(!CRPG::istrcmp(player->lang->file->name, txtdb->file->name))
+						opt = CRPG_MenuOptions::AddOption(this, 1, txtdb->name);
+					else
+						opt = CRPG_MenuOptions::AddOption(this, 0, txtdb->name);
+
+					WARN_IF(opt == NULL, continue)
+
+					opt->data.i = i++;
+				}
+			}
+		}
+
+		if(!this->opt_count) {
+			BuildOutput(0, TXTDB(player, menu_misc.no_items));
+			return ;
+		}
+
+		for(opt = this->opt_first;opt != NULL;opt = opt->ll_next) {
+			if(opt->page == this->page) {
+				if(opt->page_index > 1)
+					BuildOutput(0, "\n");
+
+				temp = opt;
+				BuildOutput(0, opt->MakeOutputStr());
+
+				if(opt->enabled)
+					SetOptions(opt->page_index);
+			}
+		}
+
+		if((temp->prevpage < 0) && (temp->nextpage >= 0)) {
+			BuildOutput(0, "\n8. %s\n->9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
+			this->SetOptions(9);
+		}
+		else if((temp->prevpage >= 0) && (temp->nextpage < 0)) {
+			BuildOutput(0, "\n->8. %s\n9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
+			this->SetOptions(8);
+		}
+		else if((temp->prevpage >= 0) && (temp->nextpage >= 0)) {
+			BuildOutput(0, "\n->8. %s\n->9. %s", TXTDB(player, menu_opt.previous), TXTDB(player, menu_opt.next));
+			this->SetOptions(8);
+			this->SetOptions(9);
+		}
+	}
+	else if(this->data.ia == 2) {
+		BuildOutput(0, "%s", TXTDB(player, menu_confirm.reset_confirm));
+		BuildOutput(0, "\n->1. %s\n->2. %s", TXTDB(player, menu_opt.yes), TXTDB(player, menu_opt.no));
+		this->SetOptions(1, 2);
+	}
+	else {
+		BuildOutput(0, "->1. %s", TXTDB(player, menu_opt.language));
+		BuildOutput(0, "\n->2. %s", TXTDB(player, menu_opt.reset_stats));
+		this->SetOptions(1, 2);
+	}
 
 	return ;
 }
 
 void CRPG_Menu::SettingsSelect(unsigned int option) {
 	CRPG_Player *player;
+	CRPG_TextDB *txtdb;
+	CRPG_MenuOptions *opt;
+	unsigned int i = 0;
 
 	if(option > ITEM_COUNT) {
 		this->DelMenu();
 		return ;
 	}
 
-	if(this->data == NULL) {
-		if(option == 1) {
-			this->data = (void*)option;
-			this->CreateMenu();
-		}
+	if(!this->data.ia) {
+		this->data.ia = option;
+		this->CreateMenu();
 	}
-	else {
+	else if(this->data.ia == 1) {
+		/* Language */
+
+		if(option == 8) {
+			if(this->page)
+				this->page--;
+			this->data.ib = 0;
+			this->CreateMenu();
+			return ;
+		}
+		else if(option == 9) {
+			if(!this->data.ib)
+				this->page++;
+			this->CreateMenu();
+			return ;
+		}
+
+		player = IndextoRPGPlayer(this->index);
+		WARN_IF(player == NULL, this->DelMenu(); return)
+
+		for(opt = this->opt_first;opt != NULL;opt = opt->ll_next) {
+			if(opt->page == this->page) {
+				if(opt->page_index == option) {
+					for(txtdb = CRPG_TextDB::ll_first;txtdb != NULL;txtdb = txtdb->ll_next) {
+						if(i++ == opt->index)
+							break;
+					}
+				}
+			}
+		}
+
+		WARN_IF(txtdb == NULL, this->DelMenu(); return)
+
+		player->lang = txtdb;
+		CRPG::ChatAreaMsg(player->index, TXTDB(player, menu_result.lang_changed), txtdb->name);
+		this->DelMenu();
+	}
+	else if(this->data.ia == 2) {
+		/* Reset Stats */
+
 		if(option != 1) {
 			this->DelMenu();
 			return ;
 		}
 
 		player = IndextoRPGPlayer(this->index);
-		WARN_IF(player == NULL, return)
+		WARN_IF(player == NULL, this->DelMenu(); return)
 
 		player->ResetStats();
-		CRPG::ChatAreaMsg(player->index, MSG_STATS_RESET);
+		CRPG::ChatAreaMsg(player->index, TXTDB(player, menu_result.stats_reset));
+		this->DelMenu();
+	}
+	else {
 		this->DelMenu();
 	}
 
@@ -370,22 +570,30 @@ void CRPG_Menu::SettingsSelect(unsigned int option) {
 
 #define HELP_LINK_COUNT 4
 struct {
-	char *name;
+	char *key;
 	char *link;
 } help_links[HELP_LINK_COUNT] = {
-	{"About CSS:RPG", "http://cssrpg.sourceforge.net/help/cssrpg.html"},
-	{"CSS:RPG Upgrades", "http://cssrpg.sourceforge.net/help/upgrades.html"},
-	{"CSS:RPG Commands", "http://cssrpg.sourceforge.net/help/commands.html"},
-	{"CSS:RPG Acronyms", "http://cssrpg.sourceforge.net/help/acronyms.html"}
+	{"menu_help.about", "http://cssrpg.sourceforge.net/help/cssrpg.html"},
+	{"menu_help.upgrades", "http://cssrpg.sourceforge.net/help/upgrades.html"},
+	{"menu_help.commands", "http://cssrpg.sourceforge.net/help/commands.html"},
+	{"menu_help.acronyms", "http://cssrpg.sourceforge.net/help/acronyms.html"}
 };
 
 void CRPG_Menu::GetHelpPage(void) {
 	unsigned int i;
+	CRPG_Player *player = IndextoRPGPlayer(this->index);
+	key_t *key;
+
+	WARN_IF(player == NULL, return)
 
 	for(i = 0;i < HELP_LINK_COUNT;i++) {
 		if(i)
 			BuildOutput(0, "\n");
-		BuildOutput(0, "->%d. %s", i+1, help_links[i].name);
+
+		key = player->lang->NametoKey(help_links[i].key);
+		WARN_IF(key == NULL, continue)
+
+		BuildOutput(0, "->%d. %s", i+1, key->s);
 		SetOptions(i+1);
 	}
 
@@ -393,13 +601,22 @@ void CRPG_Menu::GetHelpPage(void) {
 }
 
 void CRPG_Menu::HelpSelect(unsigned int option) {
+	CRPG_Player *player;
+	key_t *key;
+
 	if(option > HELP_LINK_COUNT || option < 1) {
 		this->DelMenu();
 		return ;
 	}
 	option--;
 
-	CRPG::ShowMOTD(this->index, help_links[option].name, help_links[option].link, motd_url);
+	player = IndextoRPGPlayer(this->index);
+	WARN_IF(player == NULL, return)
+
+	key = player->lang->NametoKey(help_links[option].key);
+	WARN_IF(key == NULL, return)
+
+	CRPG::ShowMOTD(this->index, key->s, help_links[option].link, motd_url);
 	this->DelMenu();
 	return ;
 }
@@ -407,11 +624,14 @@ void CRPG_Menu::HelpSelect(unsigned int option) {
 void CRPG_Menu::GetTop10Page(void) {
 	unsigned int i;
 	struct ranklist **ranks;
+	CRPG_Player *player = IndextoRPGPlayer(this->index);
+
+	WARN_IF(player == NULL, return)
 
 	CRPG_RankManager::GetTop10Players(&ranks);
 	WARN_IF(ranks == NULL, return)
 
-	BuildOutput(0, "Top 10 CSS:RPG Players\n-----\n");
+	BuildOutput(0, "%s\n-----\n", TXTDB(player, rpgtop10.msg1));
 
 	for(i = 0;i < 10;i++) {
 		if(i)
@@ -427,10 +647,16 @@ void CRPG_Menu::GetTop10Page(void) {
 }
 
 void CRPG_Menu::GetMenu(void) {
+	CRPG_Player *player;
+
 	switch(this->submenu) {
 		case none:
+			player = IndextoRPGPlayer(this->index);
+			WARN_IF(player == NULL, return)
 			SetOptions(1, 2, 3, 4, 5);
-			BuildOutput(0, "->1. Upgrades\n->2. Sell\n->3. Stats\n->4. Settings\n->5. Help");
+			BuildOutput(0, "->1. %s\n->2. %s\n->3. %s\n->4. %s\n->5. %s",
+				TXTDB(player, menu_opt.upgrades), TXTDB(player, menu_opt.sell), TXTDB(player, menu_opt.stats),
+				TXTDB(player, menu_opt.settings), TXTDB(player, menu_opt.help));
 			break;
 
 		case upgrades:
@@ -491,7 +717,7 @@ void CRPG_Menu::SendOutput(char finalize) {
 	buffer->WriteShort((finalize ? this->options : 1 << 9)); //Sets how many options the menu has
 	buffer->WriteChar(-1); //Sets how long the menu stays open -1 for stay until option selected
 	buffer->WriteByte((finalize ? 0 : 1)); // 0 = Draw Immediately, 1 = Draw Later
-	buffer->WriteString(this->menu_out); //The text shown on the menu
+	CRPG::BFWriteUString(buffer, this->menu_out); //The text shown on the menu
 
 	engine->MessageEnd();
 
@@ -548,13 +774,13 @@ void CRPG_Menu::CreateMenu(void) {
 	this->options = 0;
 	
 	if(header)
-		BuildOutput(0, "Credits %ld\n-----\n", player->credits);
+		BuildOutput(0, "%s %ld\n-----\n", TXTDB(player, menu_txt.credits), player->credits);
 
 	GetMenu();
 
 	/* Finalize Menu */
 	this->SetOptions(10);
-	BuildOutput(1, "\n0. Exit");
+	BuildOutput(1, "\n0. %s", TXTDB(player, menu_opt.exit));
 	return ;
 }
 
@@ -653,6 +879,9 @@ CRPG_Menu* CRPG_Menu::AddMenu(edict_t *e) {
 }
 
 unsigned int CRPG_Menu::DelMenu(void) {
+	if(this->opt_first != NULL)
+		this->opt_first->FreeOptions();
+
 	return del_node(this);
 }
 
