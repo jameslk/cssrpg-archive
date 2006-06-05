@@ -42,6 +42,7 @@ public:
 
 	static void GameFrame(void);
 	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor);
+	static void LimitDamage(CRPG_Player *victim, int *dmg_health, char *weapon);
 };
 
 #endif
