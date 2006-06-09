@@ -161,7 +161,7 @@ public:
 
 		while(i--) {
 			if(txt.key_array[i] != NULL)
-				free(txt.key_array[i]);
+				free(txt.key_array[i]->s);
 		}
 	}
 

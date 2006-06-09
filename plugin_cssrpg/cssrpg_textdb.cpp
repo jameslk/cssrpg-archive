@@ -279,8 +279,6 @@ void CRPG_TextDB::LoadLanguages(void) {
 				continue;
 			}
 
-			free(buf);
-
 			txtdb = new CRPG_TextDB();
 			txtdb->file = file;
 			txtdb->ll_add();
