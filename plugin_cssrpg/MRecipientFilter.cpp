@@ -38,39 +38,32 @@ extern IServerPluginHelpers *helpers;
 // memdbgon must be the last include file in a .cpp file!!! 
 #include "tier0/memdbgon.h" 
  
-MRecipientFilter::MRecipientFilter(void) 
-{ 
+MRecipientFilter::MRecipientFilter(void) { 
 } 
  
-MRecipientFilter::~MRecipientFilter(void) 
-{ 
+MRecipientFilter::~MRecipientFilter(void) { 
 } 
  
-int MRecipientFilter::GetRecipientCount() const 
-{ 
+int MRecipientFilter::GetRecipientCount() const { 
    return m_Recipients.Size(); 
 } 
  
-int MRecipientFilter::GetRecipientIndex(int slot) const 
-{ 
+int MRecipientFilter::GetRecipientIndex(int slot) const { 
    if (slot < 0 || slot >= GetRecipientCount()) 
       return -1; 
  
    return m_Recipients[slot]; 
 } 
  
-bool MRecipientFilter::IsInitMessage() const 
-{ 
+bool MRecipientFilter::IsInitMessage() const { 
    return false; 
 } 
  
-bool MRecipientFilter::IsReliable() const 
-{ 
+bool MRecipientFilter::IsReliable() const { 
    return false; 
 } 
  
-void MRecipientFilter::AddAllPlayers(int maxClients) 
-{
+void MRecipientFilter::AddAllPlayers(int maxClients) {
 	edict_t *pPlayer;
 
 	m_Recipients.RemoveAll();
@@ -89,11 +82,19 @@ void MRecipientFilter::AddAllPlayers(int maxClients)
 	return ;
 }
 
-void MRecipientFilter::AddRecipient(int iPlayer)
-{
+void MRecipientFilter::AddRecipient(int index) {
    // Already in list
-   if (m_Recipients.Find(iPlayer) != m_Recipients.InvalidIndex())
+   if (m_Recipients.Find(index) != m_Recipients.InvalidIndex())
       return;
  
-   m_Recipients.AddToTail(iPlayer);
+   m_Recipients.AddToTail(index);
+}
+
+void MRecipientFilter::RemoveAllRecipients(void) {
+	m_Recipients.RemoveAll();
+}
+
+void MRecipientFilter::RemoveRecipient(int index) {
+	// Remove it if it's in the list
+	m_Recipients.FindAndRemove(index);
 }

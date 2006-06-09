@@ -15,31 +15,30 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef _MRECIIENT_FILTER_H 
-#define _MRECIPIENT_FILTER_H 
-#include "irecipientfilter.h" 
-#include "bitvec.h" 
-#include "tier1/utlvector.h" 
+#ifndef _MRECIIENT_FILTER_H
+#define _MRECIPIENT_FILTER_H
+#include "irecipientfilter.h"
+#include "bitvec.h"
+#include "tier1/utlvector.h"
  
-class MRecipientFilter : 
-   public IRecipientFilter 
-{ 
-public: 
-   MRecipientFilter(void); 
-   ~MRecipientFilter(void); 
- 
-   virtual bool IsReliable( void ) const; 
-   virtual bool IsInitMessage( void ) const; 
- 
-   virtual int GetRecipientCount( void ) const; 
-   virtual int GetRecipientIndex( int slot ) const; 
-   void AddAllPlayers( int maxClients ); 
-	void AddRecipient (int iPlayer );
- 
-private: 
-   bool m_bReliable; 
-   bool m_bInitMessage; 
-   CUtlVector< int > m_Recipients; 
-}; 
+class MRecipientFilter: public IRecipientFilter {
+public:
+	MRecipientFilter(void);
+	~MRecipientFilter(void);
+	
+	virtual bool IsReliable(void) const;
+	virtual bool IsInitMessage(void) const;
+	virtual int GetRecipientCount(void) const;
+	virtual int GetRecipientIndex(int slot) const;
+	void AddAllPlayers(int maxClients);
+	void AddRecipient(int index);
+	void RemoveAllRecipients(void);
+	void RemoveRecipient(int index);
+
+private:
+	bool m_bReliable;
+	bool m_bInitMessage;
+	CUtlVector<int> m_Recipients;
+};
  
 #endif
