@@ -287,10 +287,10 @@ void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...) {
 		va_end(ap);
 		sprintf(msg, "%s\n", msg);
 
-		buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), 3);
-		buffer->WriteByte(0);
+		filter.AddRecipient(player->index);
+		buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
+		buffer->WriteByte(3);
 		buffer->WriteString(msg);
-		buffer->WriteByte(0);
 		engine->MessageEnd();
 	}
 	else {
@@ -307,10 +307,11 @@ void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...) {
 				va_end(ap);
 				sprintf(msg, "%s\n", msg);
 
-				buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), 3);
-				buffer->WriteByte(0);
+				filter.RemoveAllRecipients();
+				filter.AddRecipient(player->index);
+				buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
+				buffer->WriteByte(3);
 				buffer->WriteString(msg);
-				buffer->WriteByte(0);
 				engine->MessageEnd();
 			}
 		}

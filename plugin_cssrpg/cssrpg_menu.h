@@ -53,11 +53,6 @@ public:
 		memset(&data, '\0', sizeof(data));
 	}
 
-	~CRPG_MenuOptions() {
-		if(str != NULL)
-			free(str);
-	}
-
 	static CRPG_MenuOptions* AddOption(CRPG_Menu *opt_menu, char opt_enabled, char *strf, ...); /* Add option to end */
 	static CRPG_MenuOptions* PageIndextoOpt(CRPG_Menu *menu, int opt_page, int opt_index);
 	char* MakeOutputStr(void);

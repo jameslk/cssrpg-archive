@@ -449,13 +449,13 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("icestab_maxlevel", "3", "IceStab item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("icestab_cost", "20", "IceStab item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("icestab_icost", "15", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("icestab_limit_dmg", "5", "Maximum damage that can be done upon icestabbed victims (0 = disable)", var_uint, &icestab_lmtdmg);
 
 	type = &CRPG::item_types[ITEM_FPISTOL];
 	CRPG_Setting::CreateVar("fpistol_enable", "1", "Sets the FrostPistol item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("fpistol_maxlevel", "10", "FrostPistol item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("fpistol_cost", "20", "FrostPistol item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("fpistol_icost", "15", "FrostPistol item cost increment for each level", var_uint, &type->inc_cost);
-	CRPG_Setting::CreateVar("fpistol_limit_dmg", "5", "Maximum damage that can be done upon icestabbed victims (0 = disable)", var_uint, &icestab_lmtdmg);
 
 	type = &CRPG::item_types[ITEM_DENIAL];
 	CRPG_Setting::CreateVar("denial_enable", "1", "Sets the Denial item to enabled (1) or disabled (0)", var_bool, &type->enable);
