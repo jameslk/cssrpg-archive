@@ -109,6 +109,7 @@ public:
 	static unsigned int istrcmp(char *str1, char *str2);
 	static unsigned int memrcmp(void *mem_end1, void *mem_end2, size_t len);
 	static char* istrstr(char *str, char *substr);
+	static int snprintf(char *buf, size_t length, const char *format, ...);
 	static unsigned int traverse_dir(struct file_info &file, char *path, unsigned int position);
 
 	#ifdef WIN32
@@ -403,7 +404,7 @@ private:
 
 protected:
 	/* Protected Functions */
-	static void ll_init(void) {
+	void ll_init(void) {
 		*first = NULL;
 		*last = NULL;
 		*count = 0;
@@ -516,7 +517,7 @@ protected:
 	}
 
 	typedef bool (comp_func)(T* type1, T* type2);
-	static void ll_sort(comp_func *func) {
+	void ll_sort(comp_func *func) {
 		T *ptr, *next;
 		unsigned int i = *count;
 

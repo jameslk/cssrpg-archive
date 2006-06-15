@@ -268,7 +268,7 @@ void CRPG_Utils::ChatAreaMsg(int index, char *msgf, ...) {
 
 void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...) {
 	CRPG_Player *player;
-	key_t *key;
+	txtkey_t *key;
 	unsigned int i;
 	MRecipientFilter filter;
 	char msg[1024];
@@ -337,8 +337,6 @@ void CRPG_Utils::HintTextMsg(int index, char *msgf, ...) {
 	va_start(ap, msgf);
 	Q_vsnprintf(msg, sizeof(msg)-1, msgf, ap);
 	va_end(ap);
-
-	sprintf(msg, "%s", msg);
 
 	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), hinttext);
 	buffer->WriteByte(-1);
@@ -451,15 +449,25 @@ void CRPG_Utils::SetCheats(char enable, char temporary) {
 void CRPG_Utils::ConsoleMsg(char *msgf, char *msg_type, ...) {
 	char msg[1024];
 	va_list ap;
+	unsigned int i = 0;
 
 	va_start(ap, msg_type);
 	Q_vsnprintf(msg, 1023, msgf, ap);
 	va_end(ap);
 
+	while(msg[i]) {
+		if(msg[i] == '\"') /* these are a no-no in a echo message */
+			msg[i] = '\'';
+
+		i++;
+	}
+
 	if(msg_type == NULL)
-		Msg("CSS:RPG Plugin: %s\n", msg);
+		CRPG_Utils::snprintf(msg, 1023, "echo \"CSS:RPG Plugin: %s\"\n", msg);
 	else
-		Msg("CSS:RPG %s: %s\n", msg_type, msg);
+		CRPG_Utils::snprintf(msg, 1023, "echo \"CSS:RPG %s: %s\"\n", msg_type, msg);
+
+	engine->ServerCommand(msg);
 
 	return ;
 }
@@ -594,6 +602,33 @@ char* CRPG_Utils::istrstr(char *str, char *substr) {
 	return NULL;
 }
 
+/* Non-retarded version of snprintf */
+int CRPG_Utils::snprintf(char *buf, size_t length, const char *format, ...) {
+	char *temp_buf;
+	int result;
+	va_list ap;
+
+	WARN_IF(buf == NULL, return 0)
+
+	temp_buf = (char*)calloc(length, sizeof(char));
+	if(temp_buf == NULL)
+		return 0;
+
+	va_start(ap, format);
+	result = Q_vsnprintf(temp_buf, length-1, format, ap);
+	va_end(ap);
+
+	if(result < 1)
+		goto end;
+
+	strncpy(buf, temp_buf, length-1);
+	buf[length] = '\0';
+
+end:
+	free(temp_buf);
+	return result;
+}
+
 unsigned int CRPG_Utils::traverse_dir(struct file_info &file, char *path, unsigned int position) {
 #ifdef WIN32
 
@@ -603,7 +638,7 @@ unsigned int CRPG_Utils::traverse_dir(struct file_info &file, char *path, unsign
 	unsigned int i = 0;
 	char *strptr;
 
-	Q_snprintf(wc_path, MAX_PATH-1, "%s*", path);
+	CRPG_Utils::snprintf(wc_path, MAX_PATH-1, "%s*", path);
 
 	hfind = FindFirstFile(wc_path, &fdata);
 	if(hfind == INVALID_HANDLE_VALUE)
@@ -616,7 +651,7 @@ unsigned int CRPG_Utils::traverse_dir(struct file_info &file, char *path, unsign
 	do {
 		if(i++ == position) {
 			strncpy(file.name, fdata.cFileName, MAX_PATH-1);
-			Q_snprintf(file.fullpath, MAX_PATH-1, "%s%s", path, file.name);
+			CRPG_Utils::snprintf(file.fullpath, MAX_PATH-1, "%s%s", path, file.name);
 
 			if(!(fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
 				file.type = file_normal;
@@ -640,7 +675,8 @@ unsigned int CRPG_Utils::traverse_dir(struct file_info &file, char *path, unsign
 #else
 
 	char filepath[MAX_PATH];
-	DIR	*dirptr;
+	DIR *dirptr;
+	dirent *finfo;
 	struct stat buf;
 	unsigned int i = 0;
 	char *strptr;
@@ -654,14 +690,14 @@ unsigned int CRPG_Utils::traverse_dir(struct file_info &file, char *path, unsign
 	memset(file.ext, '\0', MAX_PATH);
 	memset(file.fullpath, '\0', MAX_PATH);
 
-	while((dirptr = readdir(dirptr))) {
+	while((finfo = readdir(dirptr))) {
 		if(i++ == position) {
-			Q_snprintf(filepath, MAX_PATH, "%s%s", path, dirptr->d_name);
+			CRPG_Utils::snprintf(filepath, MAX_PATH, "%s%s", path, finfo->d_name);
 
 			if(stat(filepath, &buf))
 				return 0;
 
-			strncpy(file.name, dirptr->d_name, MAX_PATH-1);
+			strncpy(file.name, finfo->d_name, MAX_PATH-1);
 			strcpy(file.fullpath, filepath);
 
 			if(!(buf.st_mode & S_IFDIR)) {
