@@ -65,6 +65,7 @@ public:
 };
 
 void FreeResult(struct tbl_result *result);
+int GetColIndex(struct tbl_result *result, char *col_name);
 char* GetCell(struct tbl_result *result, char *col_name, int row_num = 1);
 
 #endif
