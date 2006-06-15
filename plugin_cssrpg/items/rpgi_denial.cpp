@@ -122,7 +122,7 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	if(round_end) {
 		if(CRPG::istrcmp(item, "glock") || CRPG::istrcmp(item, "usp")) {
 			memset(dn->inv.second_default, '\0', 24);
-			Q_snprintf(dn->inv.second_default, 23, "weapon_%s", item);
+			CRPG::snprintf(dn->inv.second_default, 23, "weapon_%s", item);
 			return ;
 		}
 	}
@@ -136,7 +136,7 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	while(i--) {
 		if(CRPG::istrcmp(item, prim_types[i])) {
 			memset(dn->inv.primary, '\0', 24);
-			Q_snprintf(dn->inv.primary, 23, "weapon_%s", item);
+			CRPG::snprintf(dn->inv.primary, 23, "weapon_%s", item);
 			return ;
 		}
 	}
@@ -145,7 +145,7 @@ void CRPGI_Denial::ItemPickup(CRPG_Player *player, char *item) {
 	while(i--) {
 		if(CRPG::istrcmp(item, sec_types[i])) {
 			memset(dn->inv.secondary, '\0', 24);
-			Q_snprintf(dn->inv.secondary, 23, "weapon_%s", item);
+			CRPG::snprintf(dn->inv.secondary, 23, "weapon_%s", item);
 			return ;
 		}
 	}

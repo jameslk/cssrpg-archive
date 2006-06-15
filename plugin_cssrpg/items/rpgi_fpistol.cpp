@@ -144,7 +144,7 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 				fp->last_speed = pistols[i].speed;
 				fp->ll_add();
 
-				Q_snprintf(entfire_str, 64, "ent_fire player_speedmod ModifySpeed %f\n", fp->last_speed);
+				CRPG::snprintf(entfire_str, 64, "ent_fire player_speedmod ModifySpeed %f\n", fp->last_speed);
 				CRPG::SetCheats(1);
 				CRPG::s_helpers()->ClientCommand(victim->e(), "give player_speedmod\n");
 				CRPG::s_helpers()->ClientCommand(victim->e(), entfire_str);
@@ -153,7 +153,7 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 			else {
 				if(fp->last_speed > pistols[i].speed) {
 					fp->last_speed = pistols[i].speed;
-					Q_snprintf(entfire_str, 64, "ent_fire player_speedmod ModifySpeed %f\n", fp->last_speed);
+					CRPG::snprintf(entfire_str, 64, "ent_fire player_speedmod ModifySpeed %f\n", fp->last_speed);
 					CRPG::SetCheats(1);
 					CRPG::s_helpers()->ClientCommand(victim->e(), entfire_str);
 					CRPG::SetCheats(0);
