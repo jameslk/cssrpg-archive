@@ -342,6 +342,7 @@ const char *CPluginCSSRPG::GetPluginDescription(void) {
 // Purpose: called on level start
 //---------------------------------------------------------------------------------
 void CPluginCSSRPG::LevelInit(char const *pMapName) {
+	gameeventmanager->AddListener(this, "player_footstep", true);
 	gameeventmanager->AddListener(this, "player_hurt", true);
 	gameeventmanager->AddListener(this, "player_jump", true);
 	gameeventmanager->AddListener(this, "item_pickup", true);
@@ -649,7 +650,10 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	const char *name = event->GetName();
 	const unsigned int name_len = strlen(name);
 
-	if(FStrEq(name, "player_hurt")) {
+    if(FStrEq(name, "player_footstep")) {
+		CRPGI_LJump::PlayerFootStep(event->GetInt("userid"));
+	}
+	else if(FStrEq(name, "player_hurt")) {
 		CRPG_Player *attacker = UserIDtoRPGPlayer(event->GetInt("attacker"));
 		CRPG_Player *victim = UserIDtoRPGPlayer(event->GetInt("userid"));
 		int dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
@@ -843,7 +847,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		else {
 			if(player->css.team == team_t)
 				CRPG_TeamBalance::teamt_count--;
-			else if(player->css.team == team_t)
+			else if(player->css.team == team_ct)
 				CRPG_TeamBalance::teamct_count--;
 
 			player->css.team = team_none;
