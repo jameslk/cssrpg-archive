@@ -45,6 +45,8 @@ extern IVEngineServer *engine;
 /*	//////////////////////////////////////
 	CRPG_MenuOptions Class 
 	////////////////////////////////////// */
+template class CRPG_DynLinkedList<CRPG_MenuOptions>;
+
 void CRPG_MenuOptions::update_options(CRPG_Menu *menu) {
 	CRPG_MenuOptions *opt;
 	unsigned int i = 1;
@@ -115,9 +117,9 @@ char* CRPG_MenuOptions::MakeOutputStr(void) {
 	memset(this->output, '\0', 1024);
 
 	if(this->enabled)
-		Q_snprintf(this->output, 1024, "->%d. %s", this->page_index, this->str);
+		CRPG::snprintf(this->output, 1024, "->%d. %s", this->page_index, this->str);
 	else
-		Q_snprintf(this->output, 1024, "%d. %s", this->page_index, this->str);
+		CRPG::snprintf(this->output, 1024, "%d. %s", this->page_index, this->str);
 
 	return this->output;
 }
@@ -162,7 +164,7 @@ void CRPG_Menu::GetUpgradesPage(void) {
 	CRPG_Player *player;
 	unsigned int i, lvl;
 	CRPG_MenuOptions *opt, *temp;
-	key_t *key;
+	txtkey_t *key;
 
 	player = IndextoRPGPlayer(this->index);
 	if(player == NULL) {
@@ -180,11 +182,11 @@ void CRPG_Menu::GetUpgradesPage(void) {
 
 			lvl = player->items[i].level;
 			if(lvl >= CRPG::item_types[i].maxlevel) {
-				Q_snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_MAX, CR_MAX);
+				CRPG::snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_MAX, CR_MAX);
 				opt = CRPG_MenuOptions::AddOption(this, 0, temp_out, TXTDB(player, menu_txt.cost));
 			}
 			else {
-				Q_snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_STR, CR_STR);
+				CRPG::snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_STR, CR_STR);
 				opt = CRPG_MenuOptions::AddOption(this, 1, temp_out, lvl+1, TXTDB(player, menu_txt.cost), CRPGI::GetItemCost(i, lvl+1));
 			}
 
@@ -283,7 +285,7 @@ void CRPG_Menu::GetSellPage(void) {
 	CRPG_Player *player;
 	unsigned int i;
 	CRPG_MenuOptions *opt, *temp;
-	key_t *key;
+	txtkey_t *key;
 
 	player = IndextoRPGPlayer(this->index);
 	if(player == NULL) {
@@ -307,7 +309,7 @@ void CRPG_Menu::GetSellPage(void) {
 			key = player->lang->NametoKey("items.%s", CRPG::item_types[i].shortname);
 			WARN_IF(key == NULL, continue)
 
-			Q_snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_STR, CR_STR);
+			CRPG::snprintf(temp_out, 1024, "%s %s %s", key->s, LVL_STR, CR_STR);
 			opt = CRPG_MenuOptions::AddOption(this, 1, temp_out,
 				player->items[i].level, TXTDB(player, menu_txt.sale), CRPGI::GetItemSale(i, player->items[i].level));
 
@@ -486,7 +488,10 @@ void CRPG_Menu::GetSettingsPage(void) {
 		this->SetOptions(1, 2);
 	}
 	else {
-		BuildOutput(0, "->1. %s", TXTDB(player, menu_opt.language));
+		if(player->lang_is_set)
+			BuildOutput(0, "->1. %s", TXTDB(player, menu_opt.language));
+		else
+			BuildOutput(0, "->1. /!\\ %s", TXTDB(player, menu_opt.language));
 		BuildOutput(0, "\n->2. %s", TXTDB(player, menu_opt.reset_stats));
 		this->SetOptions(1, 2);
 	}
@@ -583,7 +588,7 @@ struct {
 void CRPG_Menu::GetHelpPage(void) {
 	unsigned int i;
 	CRPG_Player *player = IndextoRPGPlayer(this->index);
-	key_t *key;
+	txtkey_t *key;
 
 	WARN_IF(player == NULL, return)
 
@@ -603,7 +608,7 @@ void CRPG_Menu::GetHelpPage(void) {
 
 void CRPG_Menu::HelpSelect(unsigned int option) {
 	CRPG_Player *player;
-	key_t *key;
+	txtkey_t *key;
 
 	if(option > HELP_LINK_COUNT || option < 1) {
 		this->DelMenu();
@@ -655,9 +660,15 @@ void CRPG_Menu::GetMenu(void) {
 			player = IndextoRPGPlayer(this->index);
 			WARN_IF(player == NULL, return)
 			SetOptions(1, 2, 3, 4, 5);
-			BuildOutput(0, "->1. %s\n->2. %s\n->3. %s\n->4. %s\n->5. %s",
-				TXTDB(player, menu_opt.upgrades), TXTDB(player, menu_opt.sell), TXTDB(player, menu_opt.stats),
-				TXTDB(player, menu_opt.settings), TXTDB(player, menu_opt.help));
+			BuildOutput(0, "->1. %s\n->2. %s\n->3. %s",
+				TXTDB(player, menu_opt.upgrades), TXTDB(player, menu_opt.sell), TXTDB(player, menu_opt.stats));
+
+			if(player->lang_is_set)
+				BuildOutput(0, "\n->4. %s", TXTDB(player, menu_opt.settings));
+			else
+				BuildOutput(0, "\n->4. /!\\ %s", TXTDB(player, menu_opt.settings));
+			
+			BuildOutput(0, "\n->5. %s", TXTDB(player, menu_opt.help));
 			break;
 
 		case upgrades:
