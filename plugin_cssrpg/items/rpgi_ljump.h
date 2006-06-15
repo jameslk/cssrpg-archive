@@ -27,6 +27,7 @@ class CRPGI_LJump: public CRPG_LinkedList<CRPGI_LJump> {
 private:
 	/* Private Variables */
 	int index;
+	int userid;
 	Vector prevel;
 
 	/* Private Functions */
@@ -40,6 +41,7 @@ public:
 	static void SellItem(void *ptr);
 
 	static void PlayerJump(int userid);
+	static void PlayerFootStep(int userid);
 	static void CheckAll(void);
 };
 

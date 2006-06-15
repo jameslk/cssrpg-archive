@@ -79,9 +79,27 @@ void CRPGI_LJump::PlayerJump(int userid) {
 
 	jump = new CRPGI_LJump;
 	jump->index = player->index;
+	jump->userid = player->userid;
 	jump->prevel = player->cbp()->m_vecVelocity.Get();
 
 	jump->ll_add();
+	return ;
+}
+
+void CRPGI_LJump::PlayerFootStep(int userid) {
+	register CRPGI_LJump *jump;
+
+	if(!ll_count)
+		return ;
+
+	for(jump = ll_first;jump != NULL;jump = jump->ll_next) {
+		if(jump->userid == userid) { /* Player tried to sneak out some jump juice! */
+			jump->ll_del();
+			delete jump;
+			break;
+		}
+	}
+
 	return ;
 }
 
