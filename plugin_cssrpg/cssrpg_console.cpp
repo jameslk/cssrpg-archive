@@ -123,6 +123,11 @@ CON_COMMAND(cssrpg_debug_listdir, "List a directory's contents") {
 	struct file_info file;
 	unsigned int i = 0;
 
+	if(CRPG::s_engine()->Cmd_Argc() < 2) {
+		CRPG::DebugMsg("cssrpg_debug_listdir: Please specify a path");
+		return ;
+	}
+
 	while(CRPG::traverse_dir(file, CRPG::s_engine()->Cmd_Argv(1), i++) != END_OF_DIR) {
 		if(file.type == file_normal)
 			CRPG::DebugMsg("File: %s", file.name);
@@ -222,7 +227,6 @@ void CRPG_Setting::setval_for_type(void) {
 	if(this->flags & SETTING_HAS_UPDATEVAR) {
 		switch(this->type) {
 			case var_str:
-				memset(this->val.s, '\0', 256);
 				strncpy((char*)this->update, this->val.s, 255);
 				break;
 
@@ -294,7 +298,7 @@ CRPG_Setting* CRPG_Setting::new_setting(char *name, char *defaultval, char *desc
 
 	setting = new CRPG_Setting;
 
-	Q_snprintf(setting->name, 32, "cssrpg_%s", name);
+	CRPG::snprintf(setting->name, 32, "cssrpg_%s", name);
 	memset(setting->val.s, '\0', 256);
 	Q_strncpy(setting->defaultval, defaultval, 255);
 	Q_strncpy(setting->desc, desc, 512);
