@@ -30,98 +30,98 @@ typedef struct {
 	char *s;
 	char name[32];
 	unsigned int id;
-} key_t;
+} txtkey_t;
 
 typedef struct {
-	key_t *key_array[TXTDB_KEY_COUNT];
+	txtkey_t *key_array[TXTDB_KEY_COUNT];
 
 	struct {
-		key_t msg1;
+		txtkey_t msg1;
 	} greeting;
 
 	struct {
-		key_t regen;
-		key_t hbonus;
-		key_t resup;
-		key_t vamp;
-		key_t stealth;
-		key_t ljump;
-		key_t fnade;
-		key_t icestab;
-		key_t fpistol;
-		key_t denial;
+		txtkey_t regen;
+		txtkey_t hbonus;
+		txtkey_t resup;
+		txtkey_t vamp;
+		txtkey_t stealth;
+		txtkey_t ljump;
+		txtkey_t fnade;
+		txtkey_t icestab;
+		txtkey_t fpistol;
+		txtkey_t denial;
 	} items;
 
 	struct {
-		key_t msg1;
-		key_t msg2;
+		txtkey_t msg1;
+		txtkey_t msg2;
 	} newlvl;
 
 	struct {
-		key_t msg1;
-		key_t msg2;
+		txtkey_t msg1;
+		txtkey_t msg2;
 	} newbielvl;
 
 	struct {
-		key_t msg1;
+		txtkey_t msg1;
 	} exphint;
 
 	struct {
-		key_t msg1;
+		txtkey_t msg1;
 	} rpgrank;
 
 	struct {
-		key_t msg1;
+		txtkey_t msg1;
 	} rpgtop10;
 
 	struct {
-		key_t level;
-		key_t exp_short;
-		key_t exp_long;
-		key_t credits;
-		key_t rank;
-		key_t cost;
-		key_t sale;
+		txtkey_t level;
+		txtkey_t exp_short;
+		txtkey_t exp_long;
+		txtkey_t credits;
+		txtkey_t rank;
+		txtkey_t cost;
+		txtkey_t sale;
 	} menu_txt;
 
 	struct {
-		key_t stats_reset;
-		key_t max_lvl;
-		key_t not_enough_credits;
-		key_t item_bought;
-		key_t item_sold;
-		key_t lang_changed;
+		txtkey_t stats_reset;
+		txtkey_t max_lvl;
+		txtkey_t not_enough_credits;
+		txtkey_t item_bought;
+		txtkey_t item_sold;
+		txtkey_t lang_changed;
 	} menu_result;
 
 	struct {
-		key_t upgrades;
-		key_t sell;
-		key_t stats;
-		key_t settings;
-		key_t help;
-		key_t next;
-		key_t previous;
-		key_t yes;
-		key_t no;
-		key_t reset_stats;
-		key_t language;
-		key_t exit;
+		txtkey_t upgrades;
+		txtkey_t sell;
+		txtkey_t stats;
+		txtkey_t settings;
+		txtkey_t help;
+		txtkey_t next;
+		txtkey_t previous;
+		txtkey_t yes;
+		txtkey_t no;
+		txtkey_t reset_stats;
+		txtkey_t language;
+		txtkey_t exit;
 	} menu_opt;
 
 	struct {
-		key_t sell_confirm;
-		key_t reset_confirm;
+		txtkey_t sell_confirm;
+		txtkey_t reset_confirm;
 	} menu_confirm;
 
 	struct {
-		key_t about;
-		key_t upgrades;
-		key_t commands;
-		key_t acronyms;
+		txtkey_t about;
+		txtkey_t upgrades;
+		txtkey_t commands;
+		txtkey_t acronyms;
 	} menu_help;
 
 	struct {
-		key_t no_items;
+		txtkey_t no_items;
 	} menu_misc;
 } txt_keys;
 
@@ -130,7 +130,7 @@ class CRPG_TextDB: public CRPG_LinkedList<CRPG_TextDB> {
 	/* Private Functions */
 	void init_keyarray();
 
-	static unsigned int assign_key(key_t *key, const char *str);
+	static unsigned int assign_key(txtkey_t *key, const char *str);
 	void parse_txtfile(KeyValues *kv, unsigned int phase = 0);
 
 public:
@@ -168,8 +168,8 @@ public:
 	static void Init(void);
 	static void ShutDown(void);
 
-	key_t* NametoKey(char *namef, ...);
-	key_t* IDtoKey(unsigned int id);
+	txtkey_t* NametoKey(char *namef, ...);
+	txtkey_t* IDtoKey(unsigned int id);
 
 	static void LoadDefault(void);
 	static void LoadLanguages(void);

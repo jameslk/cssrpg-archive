@@ -131,7 +131,7 @@ CRPG_TextDB *FiletoTextDB(char *filename) {
 	return NULL;
 }
 
-key_t* CRPG_TextDB::NametoKey(char *namef, ...) {
+txtkey_t* CRPG_TextDB::NametoKey(char *namef, ...) {
 	unsigned int i = TXTDB_KEY_COUNT;
 	char name[1024];
 	va_list ap;
@@ -150,7 +150,7 @@ key_t* CRPG_TextDB::NametoKey(char *namef, ...) {
 	return NULL;
 }
 
-key_t* CRPG_TextDB::IDtoKey(unsigned int id) {
+txtkey_t* CRPG_TextDB::IDtoKey(unsigned int id) {
 	unsigned int i = TXTDB_KEY_COUNT;
 
 	WARN_IF(id > TXTDB_KEY_COUNT, return NULL)
@@ -240,7 +240,7 @@ void CRPG_TextDB::LoadLanguages(void) {
 	memset(path, '\0', MAX_PATH);
 
 	CRPG::s_engine()->GetGameDir(path, MAX_PATH);
-	Q_snprintf(path, MAX_PATH, "%s%s", path, TEXTDB_PATH);
+	CRPG::snprintf(path, MAX_PATH, "%s%s", path, TEXTDB_PATH);
 
 	do {
 		if(file == NULL)
@@ -315,7 +315,7 @@ void CRPG_TextDB::UnloadLanguages(void) {
 	return ;
 }
 
-unsigned int CRPG_TextDB::assign_key(key_t *key, const char *str) {
+unsigned int CRPG_TextDB::assign_key(txtkey_t *key, const char *str) {
 	unsigned int len;
 
 	WARN_IF(str == NULL, return 0)
