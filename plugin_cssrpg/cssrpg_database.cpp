@@ -63,11 +63,27 @@ void FreeResult(struct tbl_result *result) {
 	return ;
 }
 
+int GetColIndex(struct tbl_result *result, char *col_name) {
+	unsigned int i;
+
+	WARN_IF((result == NULL) || (col_name == NULL), return NULL)
+
+	i = result->col_count;
+
+	while(i--) {
+		if(CRPG::istrcmp(result->array[0][i], col_name))
+			return i;
+	}
+
+	CRPG::ConsoleMsg("GetColIndex() failed to find a match for col_name: \"%s\"", MTYPE_WARNING, col_name);
+
+	return -1;
+}
+
 char* GetCell(struct tbl_result *result, char *col_name, int row_num) {
 	unsigned int i;
 
-	if(result == NULL || col_name == NULL)
-		return NULL;
+	WARN_IF((result == NULL) || (col_name == NULL), return NULL)
 
 	i = result->col_count;
 
@@ -81,6 +97,11 @@ char* GetCell(struct tbl_result *result, char *col_name, int row_num) {
 }
 
 CRPG_Database::CRPG_Database(char *name) {
+	#ifndef WIN32 /* Note: If NOT Win32 */
+	struct stat buf;
+	unsigned int result;
+	#endif
+
 	db_name = new char[128];
 	memset(db_name, 0, 128);
 	strncpy(db_name, name, 32);
@@ -89,13 +110,21 @@ CRPG_Database::CRPG_Database(char *name) {
 	CRPG::s_engine()->GetGameDir(db_path, 256);
 
 	#ifdef WIN32
-	Q_snprintf(db_path, 512, "%s\\cfg\\cssrpg\\", db_path);
+	CRPG::snprintf(db_path, 512, "%s\\cfg\\cssrpg\\", db_path);
 	#else
-	Q_snprintf(db_path, 512, "%s/cfg/cssrpg/", db_path);
+	CRPG::snprintf(db_path, 512, "%s/cfg/cssrpg/", db_path);
 	#endif
 
 	CRPG::s_filesys()->CreateDirHierarchy(db_path);
-	Q_snprintf(db_path, 512, "%s%s", db_path, db_name);
+	CRPG::snprintf(db_path, 512, "%s%s", db_path, db_name);
+
+	#ifndef WIN32 /* not win32 again */
+	result = stat("cssrpg.db", &buf);
+	if(!result) { /* fix an old problem */
+		CRPG::ConsoleMsg("Database located in the srcds dir, moving it to %s", MTYPE_NOTICE, db_path);
+		rename("cssrpg.db", db_path);
+	}
+	#endif
 
 	db_status = sqlite3_open(db_path, &db);
 	if(db_status != SQLITE_OK)
