@@ -33,6 +33,7 @@
 #include "cssrpg.h"
 #include "cssrpg_bot.h"
 #include "cssrpg_textdb.h"
+#include "cssrpg_database.h"
 #include "items/rpgi.h"
 #include "cssrpg_commands.h"
 
@@ -147,7 +148,7 @@ RPG_CMD(help, "List of CSS:RPG commands and help for specific commands", 0, "[co
 			}
 		}
 		if(cmd == NULL)
-			CRPG::ConsoleMsg("Command \"%s\" not found", thiscmd, argv[0]);
+			CRPG::ConsoleMsg("Command '%s' not found", thiscmd, argv[0]);
 	}
 	else {
 		CRPG::ConsoleMsg("", "Commands");
@@ -166,15 +167,24 @@ RPG_CMD(player, "Get info about a certain player", 1, "<player name | userid | s
 
 	CRPG::ConsoleMsg("----------", NULL);
 	CRPG::ConsoleMsg("", (char*)player->name());
+
 	CRPG::ConsoleMsg("Index: %ld, UserID: %ld, SteamID: %s, Database ID: %ld:%ld", "Info",
 		player->index, player->userid, player->steamid(), player->dbinfo.player_id, player->dbinfo.items_id);
+
 	CRPG::ConsoleMsg("Level: %ld, Experience: %ld/%ld, Credits: %ld, Rank: %ld/%ld", "Stats",
 		player->level, player->exp, CRPG_StatsManager::LvltoExp(player->level), player->credits,
 		CRPG_RankManager::GetPlayerRank(player), CRPG_RankManager::GetRankCount());
+
+	if(player->lang_is_set)
+		CRPG::ConsoleMsg("Language: %s", "Settings", player->lang->name);
+	else
+		CRPG::ConsoleMsg("Language: %s (Default)", "Settings", player->lang->name);
+
 	CRPG::ConsoleMsg("", "Upgrades");
 	for(i = 0;i < ITEM_COUNT;i++) {
 		CRPG::ConsoleMsg("%s Level %ld", "-", player->items[i].type->name, player->items[i].level);
 	}
+
 	CRPG::ConsoleMsg("----------", NULL);
 
 	return 1;
@@ -511,6 +521,123 @@ RPG_CMD(sellall, "Force a player to sell all their Upgrades (full refund)", 1, "
 }
 
 RPG_CMD(db_delplayer, "Delete a player entry from both tables in the database (this cannot be undone!)", 1, "<full name | player db id | steamid>") {
+	CRPG_Player *player;
+	struct tbl_result *result;
+	char *items_id;
+
+	if(CRPG::steamid_check(argv[0])) {
+		player = SteamIDtoRPGPlayer(argv[0]);
+		if(player != NULL)
+			player->ResetStats();
+
+		if(!CRPG::db->Query(&result, "SELECT items_id, name FROM %s WHERE steamid = '%s'", TBL_PLAYERS, argv[0])) {
+			CRPG::ConsoleMsg("An error occured while attempting to execute query", thiscmd);
+			return 0;
+		}
+
+		if(result != NULL)
+			goto delete_player;
+	}
+	else if(atoi(argv[0])) {
+		if(!CRPG::db->Query(&result, "SELECT items_id, name FROM %s WHERE player_id = '%s'", TBL_PLAYERS, argv[0])) {
+			CRPG::ConsoleMsg("An error occured while attempting to execute query", thiscmd);
+			return 0;
+		}
+
+		if(result != NULL)
+			goto delete_player;
+	}
+
+	/* Else try to match as name */
+
+	player = NametoRPGPlayer(argv[0]);
+	if(player != NULL)
+		player->ResetStats();
+
+	if(!CRPG::db->Query(&result, "SELECT items_id, name FROM %s WHERE name = '%s'", TBL_PLAYERS, argv[0])) {
+		CRPG::ConsoleMsg("An error occured while attempting to execute query", thiscmd);
+		return 0;
+	}
+
+	if(result == NULL) {
+		CRPG::ConsoleMsg("Unable to find the specified player in the database", thiscmd);
+		return 1;
+	}
+
+delete_player:
+	items_id = GetCell(result, "items_id");
+
+	if(CRPG_GlobalSettings::save_data) {
+		CRPG::db->Query("DELETE FROM %s WHERE items_id = '%s'", TBL_ITEMS, items_id);
+		CRPG::db->Query("DELETE FROM %s WHERE items_id = '%s'", TBL_PLAYERS, items_id);
+	}
+	else {
+		CRPG::ConsoleMsg("Notice: cssrpg_save_data is set to '0', command had no effect", thiscmd);
+		CRPG::ConsoleMsg("Notice: Ignore the proceeding message", thiscmd);
+	}
+
+	CRPG::ConsoleMsg("Player '%s' has been deleted from the database", thiscmd, GetCell(result, "name"));
+
+	FreeResult(result);
+
+	return 1;
+}
+
+RPG_CMD(db_mass_sell, "Force everyone in the database (and playing) to sell a specific upgrade", 1, "<upgrade>") {
+	struct item_type *item = NULL;
+	unsigned int index, oldlvl, i = CRPG_Player::player_count;
+	CRPG_Player *player;
+	struct tbl_result *result;
+	int item_col, id_col;
+	char *items_id;
+
+	GET_UPGRADE_OR_RETURN(argv[0], index, item)
+
+	while(i--) {
+		if(CRPG_Player::players[i] != NULL) {
+			player = CRPG_Player::players[i];
+
+			oldlvl = player->items[index].level;
+			if(oldlvl <= 0)
+				continue; /* skip */
+
+			if(!player->TakeItem(index))
+				return 0;
+
+			player->credits += CRPGI::GetItemCost(index, oldlvl);
+		}
+	}
+
+	CRPG::db->Query(&result, "SELECT items_id, %s FROM %s WHERE %s > '0'", item->shortname, TBL_ITEMS, item->shortname);
+
+	id_col = GetColIndex(result, "items_id");
+	item_col = GetColIndex(result, item->shortname);
+
+	WARN_IF(id_col == -1, FreeResult(result); return 0)
+	WARN_IF(item_col == -1, FreeResult(result); return 0)
+
+	if(CRPG_GlobalSettings::save_data) {
+		for(i = 1;(int)i < result->row_count;i++) {
+			oldlvl = abs(atoi(result->array[i][item_col]));
+			WARN_IF(!oldlvl, oldlvl = 1)
+			WARN_IF(oldlvl > item->maxlevel, oldlvl = item->maxlevel)
+
+			items_id = result->array[i][id_col];
+
+			CRPG::db->Query("UPDATE %s SET %s = '0' WHERE items_id = '%s'", TBL_ITEMS, item->shortname, items_id);
+			CRPG::db->Query("UPDATE %s SET credits = (credits + %d) WHERE items_id = '%s'",
+				TBL_PLAYERS, CRPGI::GetItemCost(index, oldlvl), items_id);
+		}
+	}
+	else {
+		CRPG::ConsoleMsg("Notice: cssrpg_save_data is set to '0', command had no effect", thiscmd);
+	}
+
+	CRPG::ConsoleMsg("All (%d) players in the database with Upgrade '%s' have been refunded their credits",
+		thiscmd, result->row_count, item->name);
+
+	FreeResult(result);
+
 	return 1;
 }
 
@@ -526,9 +653,9 @@ RPG_CMD(cvarlist, "Build a list of CSS:RPG's CVARs for a config file", 0, "[use 
 
 	for(setting = CRPG_Setting::ll_first;setting != NULL;setting = setting->ll_next) {
 		if(argc && atoi(argv[0]) == 1)
-			CRPG::ConsoleMsg("%s \"%s\" //%s", NULL, setting->name, setting->defaultval, setting->desc);
+			CRPG::ConsoleMsg("%s '%s' //%s", NULL, setting->name, setting->defaultval, setting->desc);
 		else
-			CRPG::ConsoleMsg("%s \"%s\" //%s", NULL, setting->name, setting->var->GetString(), setting->desc);
+			CRPG::ConsoleMsg("%s '%s' //%s", NULL, setting->name, setting->var->GetString(), setting->desc);
 	}
 
 	return 1;
