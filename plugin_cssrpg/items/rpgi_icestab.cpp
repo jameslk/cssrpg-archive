@@ -187,7 +187,7 @@ void CRPGI_IceStab::LimitDamage(CRPG_Player *victim, int *dmg_health, char *weap
 
 	for(stab = ll_first;stab != NULL;stab = stab->ll_next) {
 		if(stab->v_index == victim->index) {
-			if(!CRPG::istrcmp(weapon, "knife")) {
+			if(!CRPG::istrcmp(weapon, "knife") && !victim->isfake()) {
 				set_hp = victim->cbp()->GetHealth()+(*dmg_health); /* The real handler uses the real damage */
 				*dmg_health = (((unsigned int)*dmg_health) > CRPG_GlobalSettings::icestab_lmtdmg ? (int)CRPG_GlobalSettings::icestab_lmtdmg : *dmg_health); /* new dmg */
 
