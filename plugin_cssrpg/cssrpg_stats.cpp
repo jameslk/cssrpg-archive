@@ -89,9 +89,15 @@ float CRPG_StatsManager::team_ratio(enum cssteam_t numerator) {
 }
 
 void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc) {
-	if(!lvl_inc) {
-		CRPG::ConsoleMsg("player_new_lvl: lvl_inc = 0", MTYPE_WARNING);
-		return ;
+	WARN_IF(!lvl_inc, return)
+
+	if(player->isfake() && bot_maxlevel) {
+		if((player->level+lvl_inc) > bot_maxlevel) {
+			CRPG::DebugMsg("Bot %s has surpassed the maximum level of %d, resetting its stats",
+				player->name(), bot_maxlevel);
+			player->ResetStats();
+			return ;
+		}
 	}
 
 	player->level += lvl_inc;
