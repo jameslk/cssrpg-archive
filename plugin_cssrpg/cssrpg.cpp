@@ -247,6 +247,17 @@ void CRPG::DatabaseMaid(void) {
 	return ;
 }
 
+VAR_FUNC(CRPG::CVAREnable) {
+	if(!enable) {
+		enable = 1;
+		CRPG_Player::SaveAll();
+		enable = 0;
+		ConsoleMsg("CSS:RPG data has been saved", "cssrpg_enable");
+	}
+
+	return ;
+}
+
 /*	//////////////////////////////////////
 	CRPG_Player Class 
 	////////////////////////////////////// */
