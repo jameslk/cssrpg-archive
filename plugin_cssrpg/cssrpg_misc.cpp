@@ -611,17 +611,16 @@ int CRPG_Utils::snprintf(char *buf, size_t length, const char *format, ...) {
 	WARN_IF(buf == NULL, return 0)
 
 	temp_buf = (char*)calloc(length, sizeof(char));
-	if(temp_buf == NULL)
-		return 0;
+	WARN_IF(temp_buf == NULL, return 0)
 
 	va_start(ap, format);
-	result = Q_vsnprintf(temp_buf, length-1, format, ap);
+	result = Q_vsnprintf(temp_buf, (--length), format, ap);
 	va_end(ap);
 
 	if(result < 1)
 		goto end;
 
-	strncpy(buf, temp_buf, length-1);
+	strncpy(buf, temp_buf, length);
 	buf[length] = '\0';
 
 end:
