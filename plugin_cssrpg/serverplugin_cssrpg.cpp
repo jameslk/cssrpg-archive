@@ -150,12 +150,6 @@ CGlobalVars *gpGlobals = NULL;
 void InitCVars(CreateInterfaceFn cvarFactory);
 void Bot_RunAll(void);
 
-// useful helper func
-/*inline bool FStrEq(const char *sz1, const char *sz2)
-{
-	return(Q_stricmp(sz1, sz2) == 0);
-}*/
-
 //---------------------------------------------------------------------------------
 // Purpose: CSS RPG plugin class
 //---------------------------------------------------------------------------------
@@ -556,7 +550,7 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 		return PLUGIN_CONTINUE;
 
 	pcmd = engine->Cmd_Argv(0);
-	if(FStrEq(pcmd, "menuselect")) {
+	if(!strcmp(pcmd, "menuselect")) {
 		menu = EdicttoRPGMenu(pEntity);
 		if(menu == NULL) {
 			/* menuselect probably for a different plugin */
@@ -565,7 +559,7 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 		menu->SelectOption(atoi(engine->Cmd_Argv(1)));
 		return PLUGIN_STOP;
 	}
-	else if(FStrEq(pcmd, "rpgmenu")) {
+	else if(!strcmp(pcmd, "rpgmenu")) {
 		menu = CRPG_Menu::AddMenu(pEntity);
 		if(menu == NULL) {
 			CRPG::ConsoleMsg("menu = NULL (1)", MTYPE_ERROR);
@@ -583,19 +577,19 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 				break;
 		}
 
-		if(FStrEq(pcmd, "stats"))
+		if(!strcmp(pcmd, "stats"))
 			type = stats;
-		else if(FStrEq(pcmd, "buy"))
+		else if(!strcmp(pcmd, "buy"))
 			type = upgrades;
-		else if(FStrEq(pcmd, "upgrades"))
+		else if(!strcmp(pcmd, "upgrades"))
 			type = upgrades;
-		else if(FStrEq(pcmd, "help"))
+		else if(!strcmp(pcmd, "help"))
 			type = help;
-		else if(FStrEq(pcmd, "sell"))
+		else if(!strcmp(pcmd, "sell"))
 			type = sell;
-		else if(FStrEq(pcmd, "rank"))
+		else if(!strcmp(pcmd, "rank"))
 			type = none;
-		else if(FStrEq(pcmd, "top10"))
+		else if(!strcmp(pcmd, "top10"))
 			type = top10;
 		else
 			return PLUGIN_CONTINUE;
@@ -650,13 +644,13 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	const char *name = event->GetName();
 	const unsigned int name_len = strlen(name);
 
-    if(FStrEq(name, "player_footstep")) {
+    if(!strcmp(name, "player_footstep")) {
 		CRPGI_LJump::PlayerFootStep(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "player_hurt")) {
+	else if(!strcmp(name, "player_hurt")) {
 		CRPG_Player *attacker = UserIDtoRPGPlayer(event->GetInt("attacker"));
 		CRPG_Player *victim = UserIDtoRPGPlayer(event->GetInt("userid"));
-		int dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
+		int health = event->GetInt("health"), dmg_health = event->GetInt("dmg_health"), dmg_armor = event->GetInt("dmg_armor");
 		const char *weapon = event->GetString("weapon");
 
 		if(attacker == NULL) /* probably "world" */
@@ -664,7 +658,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 
 		WARN_IF(victim == NULL, return)
 
-		CRPGI_IceStab::LimitDamage(victim, &dmg_health, (char*)weapon); /* limit damage to prevent lame headshots */
+		CRPGI_IceStab::LimitDamage(victim, health, &dmg_health, (char*)weapon); /* limit damage to prevent lame headshots */
 
 		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
@@ -675,10 +669,10 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		else
 			CRPGI_FPistol::PlayerDamage(attacker, victim, (char*)weapon);
 	}
-	else if(FStrEq(name, "player_jump")) {
+	else if(!strcmp(name, "player_jump")) {
 		CRPGI_LJump::PlayerJump(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "item_pickup")) {
+	else if(!strcmp(name, "item_pickup")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
 		WARN_IF(player == NULL, return)
 
@@ -690,7 +684,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 
 		CRPGI_Denial::NadeDetonate(player, (char*)name);
 	}
-	else if(FStrEq(name, "player_spawn")) {
+	else if(!strcmp(name, "player_spawn")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
 		CRPGI_Denial *dn;
 
@@ -711,21 +705,21 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		CRPGI_HBonus::SetSpawnHealth(player);
 		CRPGI_Stealth::SetVisibilities();
 	}
-	else if(FStrEq(name, "player_death")) {
+	else if(!strcmp(name, "player_death")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
 		WARN_IF(player == NULL, return)
 
 		player->css.isdead = 1;
 		CRPG_StatsManager::PlayerKill(event->GetInt("attacker"), player->userid, event->GetBool("headshot"));
 	}
-	else if(FStrEq(name, "player_say")) {
+	else if(!strcmp(name, "player_say")) {
 		if(!CRPG_GlobalSettings::enable)
 			return ;
 
 		const int userid = event->GetInt("userid");
 		const char *text = event->GetString("text");
 
-		if(FStrEq(text, "rpgmenu")) {
+		if(CRPG::istrcmp((char*)text, "rpgmenu")) {
 			CRPG_Menu *menu;
 
 			menu = CRPG_Menu::AddMenu(CRPG::UserIDtoEdict(userid));
@@ -735,7 +729,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			}
 			menu->CreateMenu();
 		}
-		else if(FStrEq(text, "rpghelp")) {
+		else if(CRPG::istrcmp((char*)text, "rpghelp")) {
 			CRPG_Menu *menu;
 
 			menu = CRPG_Menu::AddMenu(CRPG::UserIDtoEdict(userid));
@@ -772,7 +766,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 				}
 			}
 		}
-		else if(FStrEq(text, "rpgtop10")) {
+		else if(CRPG::istrcmp((char*)text, "rpgtop10")) {
 			CRPG_Menu *menu;
 
 			menu = CRPG_Menu::AddMenu(CRPG::UserIDtoEdict(userid));
@@ -786,7 +780,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		}
 
 		/* So I was bored... */
-		else if(FStrEq(text, "rpggaben")) {
+		else if(CRPG::istrcmp((char*)text, "rpggaben")) {
 			CRPG_Player *player = UserIDtoRPGPlayer(userid);
 			if(player == NULL)
 				return ;
@@ -794,30 +788,30 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			CRPG::EmitSound(player->index, "npc/overwatch/cityvoice/fprison_missionfailurereminder.wav");
 		}
 	}
-	else if(FStrEq(name, "round_start")) {
+	else if(!strcmp(name, "round_start")) {
 		CRPGI_Denial::round_end = 0;
 	}
-	else if(FStrEq(name, "round_end")) {
+	else if(!strcmp(name, "round_end")) {
 		CRPG_StatsManager::WinningTeam(event->GetInt("winner"), event->GetInt("reason"));
 		CRPG_TeamBalance::RoundEnd();
 		CRPGI_Denial::round_end = 1;
 	}
-	else if(FStrEq(name, "bomb_planted")) {
+	else if(!strcmp(name, "bomb_planted")) {
 		CRPG_StatsManager::BombPlanted(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "bomb_defused")) {
+	else if(!strcmp(name, "bomb_defused")) {
 		CRPG_StatsManager::BombDefused(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "bomb_exploded")) {
+	else if(!strcmp(name, "bomb_exploded")) {
 		CRPG_StatsManager::BombExploded(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "hostage_rescued")) {
+	else if(!strcmp(name, "hostage_rescued")) {
 		CRPG_StatsManager::HostageRescued(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "vip_escaped")) {
+	else if(!strcmp(name, "vip_escaped")) {
 		CRPG_StatsManager::VipEscaped(event->GetInt("userid"));
 	}
-	else if(FStrEq(name, "player_team")) {
+	else if(!strcmp(name, "player_team")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
 		CRPGI_Denial *dn;
 		int team;
