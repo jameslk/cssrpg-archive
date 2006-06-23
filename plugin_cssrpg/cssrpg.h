@@ -67,6 +67,7 @@ public:
 	static char default_lang[256];
 	static unsigned int save_interval;
 	static unsigned int player_expire;
+	static unsigned int bot_maxlevel;
 	static bool announce_newlvl;
 	
 	static unsigned int icestab_lmtdmg;
@@ -112,6 +113,8 @@ public:
 	static void ShutDown(void);
 
 	static void DatabaseMaid(void);
+
+	static VAR_FUNC(CVAREnable);
 };
 
 enum cssteam_t {team_ct, team_t, team_none};
