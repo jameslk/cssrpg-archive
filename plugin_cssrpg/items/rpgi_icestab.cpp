@@ -132,6 +132,11 @@ void CRPGI_IceStab::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int
 		return ;
 
 	for(stab = ll_first;stab != NULL;stab = stab->ll_next) {
+		if(stab->v_index == attacker->index)
+			return ; /* don't allow frozen attacker to icestab */
+	}
+
+	for(stab = ll_first;stab != NULL;stab = stab->ll_next) {
 		if(stab->v_index == victim->index)
 			break;
 	}
@@ -176,23 +181,31 @@ void CRPGI_IceStab::LimitDamage(CRPG_Player *victim, int *dmg_health, char *weap
 	CRPGI_IceStab *stab;
 	int set_hp;
 
-	IF_ITEM_NENABLED(ITEM_ICESTAB)
-		return ;
-
 	if(!ll_count)
 		return ;
 
 	if(!CRPG_GlobalSettings::icestab_lmtdmg)
 		return ;
 
+	if(CRPG::istrcmp(weapon, "knife"))
+		return ;
+
 	for(stab = ll_first;stab != NULL;stab = stab->ll_next) {
 		if(stab->v_index == victim->index) {
-			if(!CRPG::istrcmp(weapon, "knife") && !victim->isfake()) {
-				set_hp = victim->cbp()->GetHealth()+(*dmg_health); /* The real handler uses the real damage */
-				*dmg_health = (((unsigned int)*dmg_health) > CRPG_GlobalSettings::icestab_lmtdmg ? (int)CRPG_GlobalSettings::icestab_lmtdmg : *dmg_health); /* new dmg */
+			if(1) {//!victim->isfake()) {
+				/* CRPG::ChatAreaMsg(0, "damage = %d, prevhealth = %d, health = %d, gethealth = %d",
+					*dmg_health, victim->cbp()->GetHealth()+(*dmg_health), health, victim->cbp()->GetHealth()); */
 
-				if(victim->cbp()->GetHealth() > 0) /* otherwise let nature take its toll */
-					victim->cbp()->SetHealth(set_hp-(*dmg_health));
+				set_hp = victim->cbp()->GetHealth()+(*dmg_health); /* The real handler uses the real damage */
+
+				/* CRPG::ChatAreaMsg(0, "set_hp = %d+%d = %d", victim->cbp()->GetHealth(), *dmg_health, set_hp); */
+
+				*dmg_health = (((unsigned int)*dmg_health) > CRPG_GlobalSettings::icestab_lmtdmg ? (int)CRPG_GlobalSettings::icestab_lmtdmg : *dmg_health); /* new dmg */
+				
+				/* CRPG::ChatAreaMsg(0, "new_hp = %d-%d = %d", set_hp, *dmg_health, set_hp-(*dmg_health));
+				CRPG::ChatAreaMsg(0, "------------------------------------------------------------"); */
+
+				victim->cbp()->SetHealth(set_hp-(*dmg_health));
 
 				switch(rand()%3) {
 					case 0:
