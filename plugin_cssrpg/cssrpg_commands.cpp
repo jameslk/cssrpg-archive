@@ -585,7 +585,7 @@ delete_player:
 
 RPG_CMD(db_mass_sell, "Force everyone in the database (and playing) to sell a specific upgrade", 1, "<upgrade>") {
 	struct item_type *item = NULL;
-	unsigned int index, oldlvl, i = CRPG_Player::player_count;
+	unsigned int index, oldlvl, addcredits, i = CRPG_Player::player_count;
 	CRPG_Player *player;
 	struct tbl_result *result;
 	int item_col, id_col;
@@ -601,14 +601,21 @@ RPG_CMD(db_mass_sell, "Force everyone in the database (and playing) to sell a sp
 			if(oldlvl <= 0)
 				continue; /* skip */
 
-			if(!player->TakeItem(index))
-				return 0;
-
-			player->credits += CRPGI::GetItemCost(index, oldlvl);
+			while(oldlvl) {
+				player->TakeItem(index);
+				player->credits += CRPGI::GetItemCost(index, oldlvl--);
+			}
 		}
 	}
 
 	CRPG::db->Query(&result, "SELECT items_id, %s FROM %s WHERE %s > '0'", item->shortname, TBL_ITEMS, item->shortname);
+
+	if(result == NULL) {
+		CRPG::ConsoleMsg("Nobody has the Upgrade '%s' purchased at any level",
+			thiscmd, item->name);
+
+		return 1;
+	}
 
 	id_col = GetColIndex(result, "items_id");
 	item_col = GetColIndex(result, item->shortname);
@@ -622,11 +629,15 @@ RPG_CMD(db_mass_sell, "Force everyone in the database (and playing) to sell a sp
 			WARN_IF(!oldlvl, oldlvl = 1)
 			WARN_IF(oldlvl > item->maxlevel, oldlvl = item->maxlevel)
 
+			addcredits = 0;
+			while(oldlvl)
+				addcredits += CRPGI::GetItemCost(index, oldlvl--);
+
 			items_id = result->array[i][id_col];
 
 			CRPG::db->Query("UPDATE %s SET %s = '0' WHERE items_id = '%s'", TBL_ITEMS, item->shortname, items_id);
 			CRPG::db->Query("UPDATE %s SET credits = (credits + %d) WHERE items_id = '%s'",
-				TBL_PLAYERS, CRPGI::GetItemCost(index, oldlvl), items_id);
+				TBL_PLAYERS, addcredits, items_id);
 		}
 	}
 	else {
@@ -634,7 +645,7 @@ RPG_CMD(db_mass_sell, "Force everyone in the database (and playing) to sell a sp
 	}
 
 	CRPG::ConsoleMsg("All (%d) players in the database with Upgrade '%s' have been refunded their credits",
-		thiscmd, result->row_count, item->name);
+		thiscmd, result->row_count-1, item->name);
 
 	FreeResult(result);
 
@@ -663,6 +674,7 @@ RPG_CMD(cvarlist, "Build a list of CSS:RPG's CVARs for a config file", 0, "[use 
 
 RPG_CMD(reloadlangs, "Reload all languages for CSS:RPG", 0, "") {
 	CRPG_TextDB::LoadLanguages();
+	CRPG::ConsoleMsg("All languages have been reloaded", thiscmd);
 
 	return 1;
 }
