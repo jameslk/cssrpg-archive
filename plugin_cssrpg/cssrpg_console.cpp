@@ -368,6 +368,7 @@ bool CRPG_GlobalSettings::steamid_save;
 char CRPG_GlobalSettings::default_lang[256];
 unsigned int CRPG_GlobalSettings::save_interval;
 unsigned int CRPG_GlobalSettings::player_expire;
+unsigned int CRPG_GlobalSettings::bot_maxlevel;
 bool CRPG_GlobalSettings::announce_newlvl;
 
 unsigned int CRPG_GlobalSettings::icestab_lmtdmg;
@@ -396,7 +397,7 @@ float CRPG_GlobalSettings::sale_percent;
 void CRPG_GlobalSettings::InitSettings(void) {
 	struct item_type *type;
 
-	CRPG_Setting::CreateVar("enable", "1", "If set to 1, CSSRPG is enabled, if 0, CSSRPG is disabled", var_bool, &enable);
+	CRPG_Setting::CreateVar("enable", "1", "If set to 1, CSSRPG is enabled, if 0, CSSRPG is disabled", var_bool, &enable, CRPG::CVAREnable);
 	CRPG_Setting::CreateVar("bot_enable", "1", "If set to 1, bots will be able to use the CSSRPG plugin", var_bool, &bot_enable);
 	CRPG_Setting::CreateVar("debug", "0", "Turns on debug mode for this plugin", var_bool, &debug_mode);
 	CRPG_Setting::CreateVar("save_data", "1", "If disabled, the database won't be updated (this means player data won't be saved!)", var_bool, &save_data);
@@ -404,6 +405,7 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("default_lang", "english.txt", "Default language file (e.g. english.txt)", var_str, default_lang);
 	CRPG_Setting::CreateVar("save_interval", "150", "Interval (in seconds) that player data is auto saved (0 = off)", var_uint, &save_interval);
 	CRPG_Setting::CreateVar("player_expire", "30", "Sets how many days until an unused player account is deleted (0 = never)", var_uint, &player_expire);
+	CRPG_Setting::CreateVar("bot_maxlevel", "250", "The maximum level a bot can reach until its stats are reset (0 = infinite)", var_uint, &bot_maxlevel);
 	CRPG_Setting::CreateVar("announce_newlvl", "1", "Global announcement when a player reaches a new level (1 = enable, 0 = disable)", var_bool, &announce_newlvl);
 
 	type = &CRPG::item_types[ITEM_REGEN];
@@ -452,8 +454,8 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("icestab_enable", "1", "Sets the IceStab item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("icestab_maxlevel", "3", "IceStab item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("icestab_cost", "20", "IceStab item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("icestab_icost", "15", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
-	CRPG_Setting::CreateVar("icestab_limit_dmg", "5", "Maximum damage that can be done upon icestabbed victims (0 = disable)", var_uint, &icestab_lmtdmg);
+	CRPG_Setting::CreateVar("icestab_icost", "30", "IceStab item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("icestab_limit_dmg", "10", "Maximum damage that can be done upon icestabbed victims (0 = disable)", var_uint, &icestab_lmtdmg);
 
 	type = &CRPG::item_types[ITEM_FPISTOL];
 	CRPG_Setting::CreateVar("fpistol_enable", "1", "Sets the FrostPistol item to enabled (1) or disabled (0)", var_bool, &type->enable);
@@ -465,7 +467,7 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("denial_enable", "1", "Sets the Denial item to enabled (1) or disabled (0)", var_bool, &type->enable);
 	CRPG_Setting::CreateVar("denial_maxlevel", "3", "Denial item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("denial_cost", "25", "Denial item start cost", var_uint, &type->start_cost);
-	CRPG_Setting::CreateVar("denial_icost", "30", "Denial item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("denial_icost", "50", "Denial item cost increment for each level", var_uint, &type->inc_cost);
 
 	CRPG_Setting::CreateVar("exp_notice", "1", "Sets notifications to players when they gain Experience", var_bool, &exp_notice);
 	CRPG_Setting::CreateVar("exp_max", "50000", "Maximum experience that will ever be required", var_uint, &exp_max);
