@@ -428,7 +428,7 @@ void CRPG_Menu::GetSettingsPage(void) {
 	CRPG_TextDB *txtdb;
 	CRPG_MenuOptions *opt, *temp;
 	CRPG_Player *player = IndextoRPGPlayer(this->index);;
-	unsigned int i = 0;
+	unsigned int result, i = 0;
 
 	this->options = 0;
 
@@ -438,7 +438,10 @@ void CRPG_Menu::GetSettingsPage(void) {
 
 			for(txtdb = CRPG_TextDB::ll_first;txtdb != NULL;txtdb = txtdb->ll_next) {
 				if(!txtdb->hidden) {
-					if(!CRPG::istrcmp(player->lang->file->name, txtdb->file->name))
+					result = CRPG::istrcmp(player->lang->file->name, txtdb->file->name);
+					if(result && !player->lang_is_set)
+						opt = CRPG_MenuOptions::AddOption(this, 1, txtdb->name);
+					else if(!result)
 						opt = CRPG_MenuOptions::AddOption(this, 1, txtdb->name);
 					else
 						opt = CRPG_MenuOptions::AddOption(this, 0, txtdb->name);
@@ -491,7 +494,7 @@ void CRPG_Menu::GetSettingsPage(void) {
 		if(player->lang_is_set)
 			BuildOutput(0, "->1. %s", TXTDB(player, menu_opt.language));
 		else
-			BuildOutput(0, "->1. /!\\ %s", TXTDB(player, menu_opt.language));
+			BuildOutput(0, "->1. !%s", TXTDB(player, menu_opt.language));
 		BuildOutput(0, "\n->2. %s", TXTDB(player, menu_opt.reset_stats));
 		this->SetOptions(1, 2);
 	}
@@ -666,7 +669,7 @@ void CRPG_Menu::GetMenu(void) {
 			if(player->lang_is_set)
 				BuildOutput(0, "\n->4. %s", TXTDB(player, menu_opt.settings));
 			else
-				BuildOutput(0, "\n->4. /!\\ %s", TXTDB(player, menu_opt.settings));
+				BuildOutput(0, "\n->4. !%s", TXTDB(player, menu_opt.settings));
 			
 			BuildOutput(0, "\n->5. %s", TXTDB(player, menu_opt.help));
 			break;
