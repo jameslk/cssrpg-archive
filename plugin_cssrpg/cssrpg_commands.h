@@ -20,7 +20,7 @@
 
 typedef int (rpgcmd_func)(int argc, char *argv[], char *args, char *thiscmd);
 
-#include "../cssrpg_misc.h"
+#include "cssrpg_misc.h"
 class CRPG_Commands: public CRPG_LinkedList<CRPG_Commands> {
 public:
 	char name[64];
