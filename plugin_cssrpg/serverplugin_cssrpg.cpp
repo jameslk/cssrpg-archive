@@ -658,7 +658,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 
 		WARN_IF(victim == NULL, return)
 
-		CRPGI_IceStab::LimitDamage(victim, health, &dmg_health, (char*)weapon); /* limit damage to prevent lame headshots */
+		CRPGI_IceStab::LimitDamage(victim, &dmg_health, (char*)weapon); /* limit damage to prevent lame headshots */
 
 		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
