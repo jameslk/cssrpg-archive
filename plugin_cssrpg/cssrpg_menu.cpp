@@ -31,6 +31,7 @@
 
 #include "MRecipientFilter.h"
 #include "cssrpg.h"
+#include "cssrpg_interface.h"
 #include "cssrpg_textdb.h"
 #include "cssrpg_menu.h"
 
@@ -40,12 +41,10 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-extern IVEngineServer *engine;
-
 /*	//////////////////////////////////////
 	CRPG_MenuOptions Class 
 	////////////////////////////////////// */
-template class CRPG_DynLinkedList<CRPG_MenuOptions>;
+template class CRPG_DynamicLinkedList<CRPG_MenuOptions>;
 
 void CRPG_MenuOptions::update_options(CRPG_Menu *menu) {
 	CRPG_MenuOptions *opt;
@@ -727,14 +726,14 @@ void CRPG_Menu::SendOutput(char finalize) {
 	bf_write *buffer;
 
 	filter.AddRecipient(this->index);
-	buffer = engine->UserMessageBegin(&filter, 10);
+	buffer = s_engine->UserMessageBegin(&filter, 10);
 
 	buffer->WriteShort((finalize ? this->options : 1 << 9)); //Sets how many options the menu has
 	buffer->WriteChar(-1); //Sets how long the menu stays open -1 for stay until option selected
 	buffer->WriteByte((finalize ? 0 : 1)); // 0 = Draw Immediately, 1 = Draw Later
 	buffer->WriteString(this->menu_out); //The text shown on the menu
 
-	engine->MessageEnd();
+	s_engine->MessageEnd();
 
 	memset(this->menu_out, 0, 200);
 	this->menu_outlen = 0;

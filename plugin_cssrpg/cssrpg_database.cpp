@@ -97,17 +97,17 @@ char* GetCell(struct tbl_result *result, char *col_name, int row_num) {
 }
 
 CRPG_Database::CRPG_Database(char *name) {
-	#ifndef WIN32 /* Note: If NOT Win32 */
+	#ifndef WIN32 /* !WIN32 */
 	struct stat buf;
 	unsigned int result;
 	#endif
 
-	db_name = new char[128];
+	db_name = (char*)calloc(128, sizeof(char));;
 	memset(db_name, 0, 128);
 	strncpy(db_name, name, 32);
 
 	db_path = new char[512];
-	CRPG::s_engine()->GetGameDir(db_path, 256);
+	s_engine->GetGameDir(db_path, 256);
 
 	#ifdef WIN32
 	CRPG::snprintf(db_path, 512, "%s\\cfg\\cssrpg\\", db_path);
@@ -115,10 +115,10 @@ CRPG_Database::CRPG_Database(char *name) {
 	CRPG::snprintf(db_path, 512, "%s/cfg/cssrpg/", db_path);
 	#endif
 
-	CRPG::s_filesys()->CreateDirHierarchy(db_path);
+	s_filesystem->CreateDirHierarchy(db_path);
 	CRPG::snprintf(db_path, 512, "%s%s", db_path, db_name);
 
-	#ifndef WIN32 /* not win32 again */
+	#ifndef WIN32 /* !WIN32 */
 	result = stat("cssrpg.db", &buf);
 	if(!result) { /* fix an old problem */
 		CRPG::ConsoleMsg("Database located in the srcds dir, moving it to %s", MTYPE_NOTICE, db_path);
@@ -132,8 +132,8 @@ CRPG_Database::CRPG_Database(char *name) {
 }
 
 CRPG_Database::~CRPG_Database(void) {
-	delete[] db_name;
-	delete[] db_path;
+	free(db_name);
+	free(db_path);
 	sqlite3_close(db);
 }
 

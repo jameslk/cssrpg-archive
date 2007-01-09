@@ -50,6 +50,7 @@
 #include "items/rpgi_icestab.h"
 #include "items/rpgi_fpistol.h"
 #include "items/rpgi_denial.h"
+#include "items/rpgi_impulse.h"
 
 #include "cssrpg.h"
 
@@ -149,6 +150,13 @@ void CRPG::init_item_types(void) {
 	item_types[ITEM_DENIAL].maxlevelbarrier = 3;
 	item_types[ITEM_DENIAL].buy_item = CRPGI_Denial::BuyItem;
 	item_types[ITEM_DENIAL].sell_item = CRPGI_Denial::SellItem;
+
+	/* Impulse */
+	strcpy(item_types[ITEM_IMPULSE].name, "Impulse");
+	strcpy(item_types[ITEM_IMPULSE].shortname, "impulse");
+	item_types[ITEM_IMPULSE].maxlevelbarrier = 10;
+	item_types[ITEM_IMPULSE].buy_item = CRPGI_Impulse::BuyItem;
+	item_types[ITEM_IMPULSE].sell_item = CRPGI_Impulse::SellItem;
 
 	return ;
 }
@@ -291,19 +299,19 @@ void CRPG_Player::ShutDown(void) {
 /* Each player is saved each frame */
 void CRPG_Player::AutoSave(void) {
 	static int index = player_count-1; /* the player array starts at 0 */
-	static float nextrun = gpGlobals->curtime+(float)save_interval;
+	static float nextrun = s_globals->curtime+(float)save_interval;
 
-	if(gpGlobals->curtime < nextrun)
+	if(s_globals->curtime < nextrun)
 		return ;
 
 	if(!enable || !save_data || !save_interval || (players == NULL)) {
 		index = player_count-1;
-		nextrun = gpGlobals->curtime+60; /* Check again in 1 minute */
+		nextrun = s_globals->curtime+60; /* Check again in 1 minute */
 		return ;
 	}
 	else if(index < 0) {
 		index = player_count-1;
-		nextrun = gpGlobals->curtime+save_interval;
+		nextrun = s_globals->curtime+save_interval;
 		return ;
 	}
 
@@ -455,6 +463,7 @@ void CRPG_Player::InsertPlayer(void) {
 
 void CRPG_Player::LoadData(char init) {
 	unsigned int retval, i;
+	int temp_credits;
 	struct tbl_result *result;
 
 	if(!enable)
@@ -491,7 +500,9 @@ void CRPG_Player::LoadData(char init) {
 	
 	this->level = atoi(GetCell(result, "level"));
 	this->exp = atoi(GetCell(result, "exp"));
-	this->credits = atoi(GetCell(result, "credits"));
+
+	temp_credits = atoi(GetCell(result, "credits"));
+	this->credits = (temp_credits >= 0 ? temp_credits : 0);
 
 	if(strcmp(GetCell(result, "language"), " ") && strcmp(GetCell(result, "language"), "0")) {
 		this->lang = FiletoTextDB(GetCell(result, "language"));
@@ -521,9 +532,6 @@ void CRPG_Player::LoadData(char init) {
 
 	for(i = 0;i < ITEM_COUNT;i++)
 		this->items[i].level = atoi(GetCell(result, CRPG::item_types[i].shortname));
-
-	if(!init)
-		CRPGI::PlayerUpdate(this);
 
 	FreeResult(result);
 	return ;
@@ -589,8 +597,6 @@ void CRPG_Player::ResetStats(void) {
 	this->exp = 0;
 	this->credits = 0;
 
-	CRPGI::PlayerUpdate(this);
-
 	return ;
 }
 
@@ -602,7 +608,6 @@ unsigned int CRPG_Player::GiveItem(unsigned int item_index) {
 
 	this->items[item_index].level++;
 	CRPG::item_types[item_index].buy_item(this); /* do any item-specific activation */
-	CRPGI::PlayerUpdate(this);
 
 	return 1;
 }
@@ -615,7 +620,6 @@ unsigned int CRPG_Player::TakeItem(unsigned int item_index) {
 
 	this->items[item_index].level--;
 	CRPG::item_types[item_index].sell_item(this); /* do any item-specific deactivation */
-	CRPGI::PlayerUpdate(this);
 
 	return 1;
 }
@@ -656,7 +660,7 @@ unsigned int CRPG_Player::SellItem(unsigned int item_index) {
 	if(!this->TakeItem(item_index))
 		return 0;
 
-	this->credits += CRPGI::GetItemSale(item_index, this->items[item_index].level);
+	this->credits += CRPGI::GetItemSale(item_index, this->items[item_index].level+1);
 
 	return 1;
 }

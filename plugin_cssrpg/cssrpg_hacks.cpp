@@ -15,15 +15,21 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-/* NOTICE: Some of the code featured here was provided by David "BAILOPAN" Anderson via
-   his blog site.
+/* NOTICE: Some of the code featured here was provided by David "BAILOPAN"
+   Anderson via his blog site.
    LINKS:
    http://www.sourcemod.net/devlog/?p=55
    http://www.sourcemod.net/devlog/?p=56
    http://www.sourcemod.net/devlog/?p=57
+   http://wiki.tcwonline.org/index.php/Signature_scanning
 */
 
 #include <stdio.h>
+
+#ifdef WIN32
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+#endif
 
 #include "interface.h"
 #include "filesystem.h"
@@ -38,7 +44,10 @@
 #include "engine/IEngineTrace.h"
 #include "bitbuf.h"
 
+#include "server_class.h"
+
 #include "cssrpg.h"
+#include "cssrpg_fvars.h"
 #include "cssrpg_hacks.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -46,26 +55,73 @@
 
 /*	//////////////////////////////////////
 	CRPG_SigScan Class
-	Note: Plugin SigScanning on Linux is
-	pretty much impossible when SourceMM
-	is loaded.
 	////////////////////////////////////// */
+
 #ifdef WIN32
 unsigned char* CRPG_SigScan::base_addr;
 size_t CRPG_SigScan::base_len;
 
-void CRPG_SigScan::Init(char *name, unsigned char *sig, char *mask, size_t len) {
+void CRPG_SigScan::parse_sig(char *sig) {
+    int i, len, out_i = 0, mask_i = 0;
+	char byte[3] = {0};
+    
+    len = strlen(sig);
+    
+    sig_str = (unsigned char*)calloc(len, sizeof(unsigned char));
+    sig_mask = (char*)calloc(len, sizeof(char));
+    
+    for(i = 0;i < len;i++) {
+        if(isalnum(sig[i]) && isalnum(sig[i+1])) {
+            byte[0] = sig[i];
+            byte[1] = sig[i+1];
+			sig_str[out_i++] = CRPG::hextoul(byte);
+
+            if(sig[i+2] == '?') {
+                sig_mask[mask_i++] = '?';
+                i += 2;
+            }
+            else {
+                sig_mask[mask_i++] = 'x';
+                i++;
+            }
+        }
+    }
+
+	sig_len = out_i;
+
+    return ;
+}
+
+void* CRPG_SigScan::find_sig(void) {
+	unsigned char *pBasePtr = base_addr;
+	unsigned char *pEndPtr = base_addr+base_len;
+	size_t i, height = 0;
+
+	while(pBasePtr < pEndPtr) {
+		for(i = 0;i < sig_len;i++) {
+			if(i > height)
+				height++;
+
+			if((sig_mask[i] != '?') && (sig_str[i] != pBasePtr[i]))
+				break;
+		}
+
+		// If 'i' reached the end, we know we have a match!
+		if(i == sig_len)
+			return (void*)pBasePtr;
+
+		pBasePtr++;
+	}
+
+	CRPG::DebugMsg("Sig Failed at Height: %d", height);
+
+	return NULL;
+}
+
+void CRPG_SigScan::Init(char *name, char *sig) {
 	strncpy(sig_name, name, 63);
 	sig_name[64] = '\0';
 	is_set = 0;
-
-	sig_len = len;
-	sig_str = new unsigned char[sig_len];
-	CRPG::ustrncpy(sig_str, sig, sig_len);
-
-	sig_mask = new char[sig_len+1];
-	strncpy(sig_mask, mask, sig_len);
-	sig_mask[sig_len+1] = 0;
 
 	if(!base_addr) {
 		CRPG::ConsoleMsg("Failed to find the server module, CSS:RPG will not function properly.",
@@ -73,7 +129,9 @@ void CRPG_SigScan::Init(char *name, unsigned char *sig, char *mask, size_t len) 
 		return ;
 	}
 
-	if((sig_addr = FindSignature()) == NULL) {
+	parse_sig(sig);
+
+	if((sig_addr = find_sig()) == NULL) {
 		CRPG::ConsoleMsg("Failed to find the signature \"%s\", CSS:RPG will not function properly.",
 			MTYPE_ERROR, this->sig_name);
 		return ;
@@ -89,6 +147,9 @@ CRPG_SigScan::~CRPG_SigScan(void) {
 	delete[] sig_mask;
 }
 
+/**
+ * @brief Finds the start and end address of the game dll in memory.
+ */
 bool CRPG_SigScan::GetDllMemInfo(void) {
 	char binpath[1024];
 	HANDLE hModuleSnap = INVALID_HANDLE_VALUE;
@@ -97,7 +158,7 @@ bool CRPG_SigScan::GetDllMemInfo(void) {
 	base_addr = 0;
 	base_len = 0;
 
-	CRPG::s_engine()->GetGameDir(binpath, 512);
+	s_engine->GetGameDir(binpath, 512);
 	sprintf(binpath, "%s\\bin\\server.dll", binpath);
 
 	// Take a snapshot of all modules in the specified process.
@@ -133,114 +194,77 @@ bool CRPG_SigScan::GetDllMemInfo(void) {
 	return false;
 }
 
-void* CRPG_SigScan::FindSignature(void) {
-	unsigned char *pBasePtr = base_addr;
-	unsigned char *pEndPtr = base_addr+base_len;
-	size_t i, height = 0;
+/**
+ * @brief Windows Signature Scanner File Variables
+ *
+ * @{
+ */
+/* virtual void CBaseAnimating::Ignite(float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner);
+   Last Address: 0x220BC7A0 */
+CRPG_FileVar CBaseAnimating_Ignite_Sig("CBaseAnimating_Ignite_Sig",
+	"56 8B F1 8B? 86? BC? 00? 00? 00? C1? E8? 1B? A8? 01? 0F? 85? 9A?"
+	"00? 00? 00? 8B 16 FF 92? F0? 00? 00? 00? 80? 7C? 24? 0C? 00? 74? 08? 84 C0"
+	"0F? 84? 83? 00? 00? 00? 3C 01 75? 20? 80 7C 24 14 00 75? 19? 8B CE E8 83?"
+	"1A? 01? 00? 85? C0? 74? 0E? 8B 10 8B  C8 FF 92? 08? 05? 00? 00? 84 C0 74?"
+	"5F? 57 6A 01 56 E8 48? EA? 07? 00? 8B F8 83 C4 08 85 FF 74? 3D? 8B 44 24"
+	"0C 50 8B CF E8 83? E5? 07? 00? 68 00 00 00 08 8B CE",
+	"sigscanner/windows/CBaseAnimating_Ignite");
 
-	while(pBasePtr < pEndPtr) {
-		for(i = 0;i < sig_len;i++) {
-			if(i > height)
-				height++;
+/* virtual void CBaseEntity::Teleport(const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity);
+   Last Address: 0x220D9940 */
+CRPG_FileVar CBaseEntity_Teleport_Sig("CBaseEntity_Teleport_Sig",
+	"83 EC 18 53 56 8B D9 8B? 0D? 78? B2? 46? 22? 33 F6 33 C0 3B CE 7E? 21? 8B?"
+	"15? 6C? B2? 46? 22? EB? 03? 8D? 49? 00? 39 1C 82 74? 09? 83? C0? 01? 3B C1"
+	"7C? F4? EB? 08? 3B C6 0F? 8D? 17? 01? 00? 00? 55 57? 8D? 44? 24? 10? 50 51"
+	"B9? 6C? B2? 46? 22? 89 5C 24 18 E8? B4? 88? F9? FF? 8D? 4C? 24? 14? 51 53"
+	"89 44 24 18 89 74 24 1C 89 74 24 20 89 74 24 24 89 74 24 28 89 74 24 2C",
+   "sigscanner/windows/CBaseEntity_Teleport");
 
-			if((sig_mask[i] != '?') && (sig_str[i] != pBasePtr[i]))
-				break;
-		}
+/* CBaseCombatWeapon *CBaseCombatCharacter::Weapon_GetSlot(int slot) const;
+   Last Address: 220C2960 */
+CRPG_FileVar CBaseCombatCharacter_Weapon_GetSlot_Sig("CBaseCombatCharacter_Weapon_GetSlot_Sig",
+   "53 55 8B 6C 24 0C 56 8B D9 57 33 F6 8D? BB? C4? 06? 00? 00? 8B 0F 83 F9 FF"
+   "74? 3A? 8B? 15? 10? 19? 43? 22? 8B C1 25 FF 0F 00 00 C1 E0 04",
+   "sigscanner/windows/CBaseCombatCharacter_Weapon_GetSlot");
 
-		// If 'i' reached the end, we know we have a match!
-		if(i == sig_len)
-			return (void*)pBasePtr;
+/* int CBaseCombatCharacter::GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound);
+   Last Address: 220B33C0 */
+CRPG_FileVar CBaseCombatCharacter_GiveAmmo_Sig("CBaseCombatCharacter_GiveAmmo_Sig",
+   "53 8B 5C 24 08 85 DB 57 8B F9 7F? 07? 5F 33 C0 5B C2? 0C? 00? 8B? 0D? 7C?"
+   "EA? 58? 22? 8B 01 56 8B 74 24 14 56 57",
+   "sigscanner/windows/CBaseCombatCharacter_GiveAmmo");
 
-		pBasePtr++;
-	}
+/* void CBaseEntity::SetMoveType(MoveType_t val, MoveCollide_t moveCollide);
+   Last Address: 220F0890 */
+CRPG_FileVar CBaseEntity_SetMoveType_Sig("CBaseEntity_SetMoveType_Sig",
+   "56 8B F1 0F? B6? 86? DE? 00? 00? 00? 3B 44 24 08 57 8D? BE? DE? 00? 00? 00?"
+   "75 15 8D 4C 24 10 51",
+   "sigscanner/windows/CBaseEntity_SetMoveType");
 
-	CRPG::DebugMsg("Sig Failed at Height: %d", height);
+/* CBaseEntity* CBasePlayer::GiveNamedItem(const char *pszName, int iSubType);
+   Last Address: 221FD7B0 */
+CRPG_FileVar CBasePlayer_GiveNamedItem_Sig("CBasePlayer_GiveNamedItem_Sig",
+   "53 8B 5C 24 0C 55 56 8B 74 24 10 53 56 8B E9 E8? 6C? 89? EC? FF? 85 C0 74?"
+   "08? 5E 5D 33 C0 5B C2 08 00",
+   "sigscanner/windows/CBasePlayer_GiveNamedItem");
+/** @} */
 
-	return NULL;
-}
-
-CRPG_SigScan CBaseAnimating_Ignite_Sig;
-CRPG_SigScan CBaseEntity_Teleport_Sig;
-CRPG_SigScan CBaseCombatCharacter_Weapon_GetSlot_Sig;
-CRPG_SigScan CBaseCombatCharacter_GiveAmmo_Sig;
-CRPG_SigScan CBaseEntity_SetMoveType_Sig;
-CRPG_SigScan CBasePlayer_GiveNamedItem_Sig;
+CRPG_SigScan CBaseAnimating_Ignite_SigScan;
+CRPG_SigScan CBaseEntity_Teleport_SigScan;
+CRPG_SigScan CBaseCombatCharacter_Weapon_GetSlot_SigScan;
+CRPG_SigScan CBaseCombatCharacter_GiveAmmo_SigScan;
+CRPG_SigScan CBaseEntity_SetMoveType_SigScan;
+CRPG_SigScan CBasePlayer_GiveNamedItem_SigScan;
 
 void init_sigs(void) {
 	CRPG_SigScan::GetDllMemInfo();
 
-	/* virtual void CBaseAnimating::Ignite(float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner);
-	Last Address: 0x220BC7A0
-	Signature: 56 8B F1 8B? 86? BC? 00? 00? 00? C1? E8? 1B? A8? 01? 0F? 85? 9A? 00? 00? 00? 
-	8B 16 FF 92? F0? 00? 00? 00? 80? 7C? 24? 0C? 00? 74? 08? 84 C0 0F? 84? 83? 00? 00? 00? 
-	3C 01 75? 20? 80 7C 24 14 00 75? 19? 8B CE E8 83? 1A? 01? 00? 85? C0? 74? 0E? 8B 10 8B 
-	C8 FF 92? 08? 05? 00? 00? 84 C0 74? 5F? 57 6A 01 56 E8 48? EA? 07? 00? 8B F8 83 C4 08 
-	85 FF 74? 3D? 8B 44 24 0C 50 8B CF E8 83? E5? 07? 00? 68 00 00 00 08 8B CE */
-CBaseAnimating_Ignite_Sig.Init("CBaseAnimating::Ignite",
-(unsigned char*)"\x56\x8B\xF1\x8B\x86\xBC\x00\x00\x00\xC1\xE8\x1B\xA8\x01\x0F\x85\
-\x9A\x00\x00\x00\x8B\x16\xFF\x92\xF0\x00\x00\x00\x80\x7C\x24\x0C\x00\x74\x08\x84\xC0\
-\x0F\x84\x83\x00\x00\x00\x3C\x01\x75\x20\x80\x7C\x24\x14\x00\x75\x19\x8B\xCE\xE8\x83\
-\x1A\x01\x00\x85\xC0\x74\x0E\x8B\x10\x8B\xC8\xFF\x92\x08\x05\x00\x00\x84\xC0\x74\x5F\
-\x57\x6A\x01\x56\xE8\x48\xEA\x07\x00\x8B\xF8\x83\xC4\x08\x85\xFF\x74\x3D\x8B\x44\x24\
-\x0C\x50\x8B\xCF\xE8\x83\xE5\x07\x00\x68\x00\x00\x00\x08\x8B\xCE",
-"xxx?????????????????xxx????????????xx??????xx??xxxxx??xxx????????xxxxx?????xx??xxxxx\
-????xxxxxxx??xxxxxxxx????xxxxxxx",
-116);
-
-	/* virtual void CBaseEntity::Teleport(const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity);
-	Last Address: 0x220D9940
-	Signature: 83 EC 18 53 56 8B D9 8B? 0D? 78? B2? 46? 22? 33 F6 33 C0 3B CE 7E? 21? 8B? 
-	15? 6C? B2? 46? 22? EB? 03? 8D? 49? 00? 39 1C 82 74? 09? 83? C0? 01? 3B C1 7C? F4? EB? 
-	08? 3B C6 0F? 8D? 17? 01? 00? 00? 55 57? 8D? 44? 24? 10? 50 51 B9? 6C? B2? 46? 22? 89 
-	5C 24 18 E8? B4? 88? F9? FF? 8D? 4C? 24? 14? 51 53 89 44 24 18 89 74 24 1C 89 74 24 20 
-	89 74 24 24 89 74 24 28 89 74 24 2C */
-CBaseEntity_Teleport_Sig.Init("CBaseEntity::Teleport",
-(unsigned char*)"\x83\xEC\x18\x53\x56\x8B\xD9\x8B\x0D\x78\xB2\x46\x22\x33\xF6\x33\xC0\
-\x3B\xCE\x7E\x21\x8B\x15\x6C\xB2\x46\x22\xEB\x03\x8D\x49\x00\x39\x1C\x82\x74\x09\x83\xC0\
-\x01\x3B\xC1\x7C\xF4\xEB\x08\x3B\xC6\x0F\x8D\x17\x01\x00\x00\x55\x57\x8D\x44\x24\x10\x50\
-\x51\xB9\x6C\xB2\x46\x22\x89\x5C\x24\x18\xE8\xB4\x88\xF9\xFF\x8D\x4C\x24\x14\x51\x53\x89\
-\x44\x24\x18\x89\x74\x24\x1C\x89\x74\x24\x20\x89\x74\x24\x24\x89\x74\x24\x28\x89\x74\x24\x2C",
-"xxxxxxx??????xxxxxx?????????????xxx?????xx????xx??????x?????xx?????xxxx?????????xxxxxxxxxxxxxxxxxxxxxxxxxx",
-106);
-
-	/* CBaseCombatWeapon *CBaseCombatCharacter::Weapon_GetSlot(int slot) const;
-	Last Address: 220C2960
-	Signature: 53 55 8B 6C 24 0C 56 8B D9 57 33 F6 8D? BB? C4? 06? 00? 00? 8B 0F 83 
-	F9 FF 74? 3A? 8B? 15? 10? 19? 43? 22? 8B C1 25 FF 0F 00 00 C1 E0 04 */
-CBaseCombatCharacter_Weapon_GetSlot_Sig.Init("CBaseCombatCharacter::Weapon_GetSlot",
-(unsigned char*)"\x53\x55\x8B\x6C\x24\x0C\x56\x8B\xD9\x57\x33\xF6\x8D\xBB\xC4\x06\x00\x00\
-\x8B\x0F\x83\xF9\xFF\x74\x3A\x8B\x15\x10\x19\x43\x22\x8B\xC1\x25\xFF\x0F\x00\x00\xC1\xE0\x04",
-"xxxxxxxxxxxx??????xxxxx????????xxxxxxxxxx",
-41);
-
-	/* int CBaseCombatCharacter::GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound);
-	Last Address: 220B33C0
-	Signature: 53 8B 5C 24 08 85 DB 57 8B F9 7F? 07? 5F 33 C0 5B C2? 0C? 00? 8B? 0D? 
-	7C? EA? 58? 22? 8B 01 56 8B 74 24 14 56 57 */
-CBaseCombatCharacter_GiveAmmo_Sig.Init("CBaseCombatCharacter::GiveAmmo",
-(unsigned char*)"\x53\x8B\x5C\x24\x08\x85\xDB\x57\x8B\xF9\x7F\x07\x5F\x33\xC0\x5B\xC2\x0C\
-\x00\x8B\x0D\x7C\xEA\x58\x22\x8B\x01\x56\x8B\x74\x24\x14\x56\x57",
-"xxxxxxxxxx??xxxx?????????xxxxxxxxx",
-34);
-
-	/* void CBaseEntity::SetMoveType(MoveType_t val, MoveCollide_t moveCollide);
-	Last Address: 220D7D20
-	Signature: 56 8B F1 8B 4C 24 08 39 8E 04 02 00 00 75? 41? 8B 4C 24 0C 39 8E 08 02 00 00 */
-CBaseEntity_SetMoveType_Sig.Init("CBaseEntity::SetMoveType",
-(unsigned char*)"\x56\x8B\xF1\x8B\x4C\x24\x08\x39\x8E\x04\x02\x00\x00\x75\x41\x8B\x4C\x24\
-\x0C\x39\x8E\x08\x02\x00\x00",
-"xxxxxxxxxxxxx??xxxxxxxxxx",
-25);
-
-	/* CBaseEntity* CBasePlayer::GiveNamedItem(const char *pszName, int iSubType);
-	Last Address: 221FD7B0
-	Signature: 53 8B 5C 24 0C 55 56 8B 74 24 10 53 56 8B E9 E8? 6C? 89? EC? FF? 85 C0 74? 08?
-	5E 5D 33 C0 5B C2 08 00 */
-CBasePlayer_GiveNamedItem_Sig.Init("CBasePlayer::GiveNamedItem",
-(unsigned char*)"\x53\x8B\x5C\x24\x0C\x55\x56\x8B\x74\x24\x10\x53\x56\x8B\xE9\xE8\x6C\x89\xEC\xFF\
-\x85\xC0\x74\x08\x5E\x5D\x33\xC0\x5B\xC2\x08\x00",
-"xxxxxxxxxxxxxxx?????xx??xxxxxxxx",
-32);
+	CBaseAnimating_Ignite_SigScan.Init("CBaseAnimating::Ignite", CBaseAnimating_Ignite_Sig.String());
+	CBaseEntity_Teleport_SigScan.Init("CBaseEntity::Teleport", CBaseEntity_Teleport_Sig.String());
+	CBaseCombatCharacter_Weapon_GetSlot_SigScan.Init("CBaseCombatCharacter::Weapon_GetSlot", CBaseCombatCharacter_Weapon_GetSlot_Sig.String());
+	CBaseCombatCharacter_GiveAmmo_SigScan.Init("CBaseCombatCharacter::GiveAmmo", CBaseCombatCharacter_GiveAmmo_Sig.String());
+	CBaseEntity_SetMoveType_SigScan.Init("CBaseEntity::SetMoveType", CBaseEntity_SetMoveType_Sig.String());
+	CBasePlayer_GiveNamedItem_SigScan.Init("CBasePlayer::GiveNamedItem", CBasePlayer_GiveNamedItem_Sig.String());
 
 	return ;
 }
@@ -257,6 +281,9 @@ void *CBaseCombatCharacter_GiveAmmo_Addr;
 void *CBaseEntity_SetMoveType_Addr;
 void *CBasePlayer_GiveNamedItem_Addr;
 
+/**
+ * @brief Search for a function symbol in the game dll.
+ */
 void* find_sym_addr(void *dl_handle, char *name, char *symbol) {
 	void *addr;
 
@@ -279,7 +306,7 @@ void init_lsym_funcs(void) {
 	void *handle;
 	int error = 0;
 
-	CRPG::s_engine()->GetGameDir(binpath, 512);
+	s_engine->GetGameDir(binpath, 512);
 	sprintf(binpath, "%s/bin/server_i486.so", binpath);
 
 	handle = dlopen(binpath, RTLD_NOW);
@@ -313,15 +340,188 @@ void init_lsym_funcs(void) {
 #endif /* endif !WIN32 */
 
 /*	//////////////////////////////////////
+	CRPG_ExternProps Class
+	////////////////////////////////////// */
+struct CRPG_ExternProps::netp_s CRPG_ExternProps::netp = {-1};
+struct CRPG_ExternProps::datap_s CRPG_ExternProps::datap = {-1};
+
+/**
+ * @brief 
+ */
+SendProp* CRPG_ExternProps::scan_sendtable(SendTable *tbl, char *name) {
+	int i, count;
+	SendProp *prop;
+
+	count = tbl->GetNumProps();
+	for(i = 0;i < count;i++) {
+		prop = tbl->GetProp(i);
+		if(!strcmp(prop->GetName(), name))
+			return prop;
+	}
+
+	return NULL;
+}
+
+/**
+ * @brief 
+ */
+void CRPG_ExternProps::print_sendtable(FILE *fptr, SendTable *tbl, int depth) {
+	int i, count;
+	int depth_inc;
+
+	for(depth_inc = 0;depth_inc < depth;depth_inc++)
+			fprintf(fptr, " ");
+
+	fprintf(fptr, "Sub-Class Table (%d Deep): %s\n", depth+1, tbl->GetName());
+
+	count = tbl->GetNumProps();
+	for(i = 0;i < count;i++) {
+		if(!strcmp(tbl->GetProp(i)->GetName(), "baseclass"))
+			print_sendtable(fptr, tbl->GetProp(i)->GetDataTable(), depth+1);
+
+		for(depth_inc = 0;depth_inc < depth;depth_inc++)
+			fprintf(fptr, " ");
+
+		fprintf(fptr, "- Member: %s\n", tbl->GetProp(i)->GetName());
+	}
+
+	return ;
+}
+
+#define CHECK_NETPROP(NAME) \
+	if(netp.NAME < 0) \
+		CRPG::ConsoleMsg("Unable to find %s network property", MTYPE_ERROR, #NAME);
+
+/**
+ * @brief External Property Paths
+ *
+ * @{
+ */
+CRPG_FileVar NP_m_iHealth_Path("NP_m_iHealth_Path", "CBasePlayer/m_iHealth", "extern_props/NP_m_iHealth");
+CRPG_FileVar NP_m_nRenderMode("NP_m_nRenderMode", "CBaseEntity/m_nRenderMode", "extern_props/NP_m_nRenderMode");
+CRPG_FileVar NP_m_clrRender("NP_m_clrRender", "CBaseEntity/m_clrRender", "extern_props/NP_m_clrRender");
+CRPG_FileVar NP_m_nRenderFX("NP_m_nRenderFX", "CBaseEntity/m_nRenderFX", "extern_props/NP_m_nRenderFX");
+/** @} */
+
+/**
+ * @brief 
+ */
+void CRPG_ExternProps::Init(IServerGameDLL *gamedll) {
+	ServerClass *sc;
+
+	WARN_IF(gamedll == NULL, return;);
+
+	sc = gamedll->GetAllServerClasses();
+
+	netp.m_iHealth = FindNetProp(sc, NP_m_iHealth_Path.String());
+	CHECK_NETPROP(m_iHealth);
+
+	netp.m_nRenderMode = FindNetProp(sc, NP_m_nRenderMode.String());
+	CHECK_NETPROP(m_nRenderMode);
+
+	netp.m_clrRender = FindNetProp(sc, NP_m_clrRender.String());
+	CHECK_NETPROP(m_clrRender);
+
+	netp.m_nRenderFX = FindNetProp(sc, NP_m_nRenderFX.String());
+	CHECK_NETPROP(m_nRenderFX);
+
+	return ;
+}
+
+/**
+ * @brief 
+ */
+long CRPG_ExternProps::FindNetProp(ServerClass *sc, char *path) {
+	unsigned int i, pathlen = strlen(path);
+	char *name = (char*)calloc(pathlen, sizeof(char));
+	SendTable *tbl;
+	SendProp *prop;
+
+	WARN_IF(name == NULL, return -1;);
+
+	strcpy(name, path);
+	for(i = 0;i < pathlen;i++) {
+		if(name[i] == '/')
+			name[i] = '\0';
+	}
+    
+	while(sc) {
+		tbl = sc->m_pTable;
+
+		if(strcmp(sc->GetName(), name)) {
+			sc = sc->m_pNext;
+			continue;
+		}
+
+		for(i = 0;(name[i] != '\0') && (i < pathlen);i++);
+
+		i++; /* increment passed the '\0' character */
+		if(i >= pathlen)
+			return -1; /* Invalid network property path */
+
+		while(tbl != NULL) {
+			prop = scan_sendtable(tbl, name+i);
+			if(prop == NULL)
+				break;
+
+			while((name[i] != '\0') && (i < pathlen))
+				i++;
+
+			i++; /* increment passed the '\0' character */
+			if(i >= pathlen) {
+				CRPG::DebugMsg("Found network property: %s", path);
+				free(name);
+				return prop->GetOffset();
+			}
+
+			tbl = prop->GetDataTable();
+		}
+
+		sc = sc->m_pNext;
+	}
+
+	free(name);
+	return -1;
+}
+
+CRPG_FileVar CBE_DataDescMap_Offset("CBE_DataDescMap_Offset", "123", "offsets/CBE_DataDescMap");
+
+/**
+ * @brief 
+ */
+long CRPG_ExternProps::FindDataProp(CBaseEntity *cbe, char *name) {
+	return -1;
+}
+
+/**
+ * @brief 
+ */
+void CRPG_ExternProps::DumpNetProps(FILE *fptr, ServerClass *sc) {
+	while(sc) {
+		fprintf(fptr, "Class Table: %s\n", sc->GetName());
+		print_sendtable(fptr, sc->m_pTable, 0);
+		sc = sc->m_pNext;
+	}
+
+	return ;
+}
+
+/**
+ * @brief 
+ */
+void CRPG_ExternProps::DumpDataProps(FILE *fptr, CBaseEntity *cbe) {
+}
+
+/*	//////////////////////////////////////
 	Hacked Functions
 	////////////////////////////////////// */
 void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner) {
 	#ifdef WIN32
-	if(!CBaseAnimating_Ignite_Sig.is_set)
+	if(!CBaseAnimating_Ignite_SigScan.is_set)
 		return ;
 
 	typedef void (__fastcall *func)(CBaseAnimating*, void*, float, bool, float, bool);
-	func thisfunc = (func)CBaseAnimating_Ignite_Sig.sig_addr;
+	func thisfunc = (func)CBaseAnimating_Ignite_SigScan.sig_addr;
 	thisfunc(cba, 0, flFlameLifetime, bNPCOnly, flSize, bCalledByLevelDesigner);
 
 	#else
@@ -338,11 +538,11 @@ void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPC
 
 void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity) {
 	#ifdef WIN32
-	if(!CBaseEntity_Teleport_Sig.is_set)
+	if(!CBaseEntity_Teleport_SigScan.is_set)
 		return ;
 
 	typedef void (__fastcall *func)(CBaseEntity*, void*, const Vector*, const QAngle*, const Vector*);
-	func thisfunc = (func)CBaseEntity_Teleport_Sig.sig_addr;
+	func thisfunc = (func)CBaseEntity_Teleport_SigScan.sig_addr;
 	thisfunc(cbe, 0, newPosition, newAngles, newVelocity);
 
 	#else
@@ -361,11 +561,11 @@ CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbc
 	CBaseCombatWeapon *ret;
 
 	#ifdef WIN32
-	if(!CBaseCombatCharacter_Weapon_GetSlot_Sig.is_set)
+	if(!CBaseCombatCharacter_Weapon_GetSlot_SigScan.is_set)
 		return NULL;
 
 	typedef CBaseCombatWeapon* (__fastcall *func)(CBaseCombatCharacter*, void*, int);
-	func thisfunc = (func)CBaseCombatCharacter_Weapon_GetSlot_Sig.sig_addr;
+	func thisfunc = (func)CBaseCombatCharacter_Weapon_GetSlot_SigScan.sig_addr;
 	ret = thisfunc(cbcc, 0, slot);
 
 	#else
@@ -384,11 +584,11 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 	int ret;
 
 	#ifdef WIN32
-	if(!CBaseCombatCharacter_GiveAmmo_Sig.is_set)
+	if(!CBaseCombatCharacter_GiveAmmo_SigScan.is_set)
 		return 0;
 
 	typedef int (__fastcall *func)(CBaseCombatCharacter*, void*, int, int, bool);
-	func thisfunc = (func)CBaseCombatCharacter_GiveAmmo_Sig.sig_addr;
+	func thisfunc = (func)CBaseCombatCharacter_GiveAmmo_SigScan.sig_addr;
 	ret = thisfunc(cbcc, 0, iCount, iAmmoIndex, bSuppressSound);
 
 	#else
@@ -405,11 +605,11 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 
 void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide) {
 	#ifdef WIN32
-	if(!CBaseEntity_SetMoveType_Sig.is_set)
+	if(!CBaseEntity_SetMoveType_SigScan.is_set)
 		return ;
 
 	typedef void (__fastcall *func)(CBaseEntity*, void*, MoveType_t val, MoveCollide_t moveCollide);
-	func thisfunc = (func)CBaseEntity_SetMoveType_Sig.sig_addr;
+	func thisfunc = (func)CBaseEntity_SetMoveType_SigScan.sig_addr;
 	thisfunc(cbe, 0, val, moveCollide);
 
 	#else
@@ -428,11 +628,11 @@ CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, in
 	CBaseEntity *ret;
 
 	#ifdef WIN32
-	if(!CBasePlayer_GiveNamedItem_Sig.is_set)
+	if(!CBasePlayer_GiveNamedItem_SigScan.is_set)
 		return NULL;
 
 	typedef CBaseEntity* (__fastcall *func)(CBasePlayer*, void*, const char*, int);
-	func thisfunc = (func)CBasePlayer_GiveNamedItem_Sig.sig_addr;
+	func thisfunc = (func)CBasePlayer_GiveNamedItem_SigScan.sig_addr;
 	ret = thisfunc(cbp, 0, pszName, iSubType);
 
 	#else

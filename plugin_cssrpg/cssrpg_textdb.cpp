@@ -36,10 +36,10 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-template class CRPG_LinkedList<CRPG_TextDB>;
-template<> CRPG_TextDB* CRPG_LinkedList<CRPG_TextDB>::ll_first;
-template<> CRPG_TextDB* CRPG_LinkedList<CRPG_TextDB>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPG_TextDB>::ll_count;
+template class CRPG_StaticLinkedList<CRPG_TextDB>;
+template<> CRPG_TextDB* CRPG_StaticLinkedList<CRPG_TextDB>::ll_first;
+template<> CRPG_TextDB* CRPG_StaticLinkedList<CRPG_TextDB>::ll_last;
+template<> unsigned int CRPG_StaticLinkedList<CRPG_TextDB>::ll_count;
 CRPG_TextDB* CRPG_TextDB::deflang = NULL;
 
 #define ADD_KEY(key) txt.key_array[i] = &txt.key; \
@@ -60,6 +60,7 @@ void CRPG_TextDB::init_keyarray(void) {
 	ADD_KEY(items.icestab);
 	ADD_KEY(items.fpistol);
 	ADD_KEY(items.denial);
+	ADD_KEY(items.impulse);
 	ADD_KEY(newlvl.msg1);
 	ADD_KEY(newlvl.msg2);
 	ADD_KEY(newbielvl.msg1);
@@ -106,7 +107,23 @@ void CRPG_TextDB::init_keyarray(void) {
 	return ;
 }
 
+CRPG_TextDB::~CRPG_TextDB(void) {
+	unsigned int i = TXTDB_KEY_COUNT;
+
+	if(file != NULL)
+		free(file);
+
+	if(name != NULL)
+		free(name);
+
+	while(i--) {
+		if(txt.key_array[i]->s != NULL)
+			free(txt.key_array[i]->s);
+	}
+}
+
 void CRPG_TextDB::Init(void) {
+	ll_init();
 	LoadLanguages();
 
 	return ;
@@ -165,9 +182,9 @@ txtkey_t* CRPG_TextDB::IDtoKey(unsigned int id) {
 
 #define ASSIGN(x, y) assign_key(&deflang->txt.x, y);
 void CRPG_TextDB::LoadDefault(void) {
-	deflang = new CRPG_TextDB();
+	deflang = new CRPG_TextDB;
 
-	deflang->name = (char*)calloc(sizeof(char), strlen("Default")+1);
+	deflang->name = (char*)calloc(strlen("Default")+1, sizeof(char));
 	strcpy(deflang->name, "Default");
 
 	deflang->hidden = 1;
@@ -184,6 +201,7 @@ void CRPG_TextDB::LoadDefault(void) {
 	ASSIGN(items.icestab, "IceStab");
 	ASSIGN(items.fpistol, "FrostPistol");
 	ASSIGN(items.denial, "Denial");
+	ASSIGN(items.impulse, "Impulse");
 	ASSIGN(newlvl.msg1, "%s is now Level %d");
 	ASSIGN(newlvl.msg2, "You have new credits (%ld total). Type \"rpgmenu\" to buy upgrades.");
 	ASSIGN(newbielvl.msg1, "\x04You have gained a new Level! This means you can buy Upgrades which give you an advantage over your opponents.\x01");
@@ -232,6 +250,7 @@ void CRPG_TextDB::LoadLanguages(void) {
 	file_info *file = NULL;
 	unsigned int i = 0, keyc, result, fsize;
 	FILE *fptr;
+	KeyValues *kv;
 	CRPG_TextDB *txtdb;
 
 	UnloadLanguages();
@@ -239,7 +258,7 @@ void CRPG_TextDB::LoadLanguages(void) {
 
 	memset(path, '\0', MAX_PATH);
 
-	CRPG::s_engine()->GetGameDir(path, MAX_PATH);
+	s_engine->GetGameDir(path, MAX_PATH);
 	CRPG::snprintf(path, MAX_PATH, "%s%s", path, TEXTDB_PATH);
 
 	do {
@@ -272,14 +291,14 @@ void CRPG_TextDB::LoadLanguages(void) {
 			if(!memcmp(buf, "\xEF\xBB\xBF", 3))
 				buf += 3;
 
-			KeyValues *kv = new KeyValues(file->fullpath);
+			kv = new KeyValues(file->fullpath);
 			kv->UsesEscapeSequences(true);
 			if(!kv->LoadFromBuffer(file->name, buf)) {
 				CRPG::ConsoleMsg("Failed to parse language file: %s", MTYPE_WARNING, file->name);
 				continue;
 			}
 
-			txtdb = new CRPG_TextDB();
+			txtdb = new CRPG_TextDB;
 			txtdb->file = file;
 			txtdb->ll_add();
 
@@ -297,19 +316,19 @@ void CRPG_TextDB::LoadLanguages(void) {
 	} while(result == 1);
 
 	if(!result)
-		CRPG::ConsoleMsg("Error when loading languages from: %s", MTYPE_ERROR, path);
+		CRPG::ConsoleMsg("Error when loading languages from: %s", MTYPE_WARNING, path);
 
 	free(file);
 	return ;
 }
 
 void CRPG_TextDB::UnloadLanguages(void) {
-	CRPG_TextDB *txt, *next;
+	CRPG_TextDB *txtdb, *next;
 
-	for(txt = ll_first;txt != NULL;txt = next) {
-		next = txt->ll_next;
-		txt->ll_del();
-		delete txt;
+	for(txtdb = ll_first;txtdb != NULL;txtdb = next) {
+		next = txtdb->ll_next;
+		txtdb->ll_del();
+		delete txtdb;
 	}
 
 	return ;
@@ -326,7 +345,7 @@ unsigned int CRPG_TextDB::assign_key(txtkey_t *key, const char *str) {
 	if((*key).s != NULL)
 		free((*key).s);
 
-	(*key).s = (char*)calloc(sizeof(char), len+1);
+	(*key).s = (char*)calloc(len+1, sizeof(char));
 	strcpy((*key).s, str);
 
 	return 1;
@@ -341,7 +360,7 @@ void CRPG_TextDB::parse_txtfile(KeyValues *kv, unsigned int phase) {
 	if(!phase) {
 		for(subkey = kv;subkey != NULL;subkey = subkey->GetNextTrueSubKey()) {
 			if(CRPG::istrcmp((char*)subkey->GetName(), "Language")) {
-				this->name = (char*)calloc(sizeof(char), strlen(subkey->GetString("name"))+1);
+				this->name = (char*)calloc(strlen(subkey->GetString("name"))+1, sizeof(char));
 				strcpy(this->name, subkey->GetString("name"));
 			}
 			else if(CRPG::istrcmp((char*)subkey->GetName(), "Greeting")) {

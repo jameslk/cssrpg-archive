@@ -20,7 +20,7 @@
 
 #include "cssrpg_misc.h"
 class CRPG_Menu;
-class CRPG_MenuOptions: public CRPG_DynLinkedList<CRPG_MenuOptions> {
+class CRPG_MenuOptions: public CRPG_DynamicLinkedList<CRPG_MenuOptions> {
 private:
 	/* Private Variables */
 	CRPG_Menu *menu;

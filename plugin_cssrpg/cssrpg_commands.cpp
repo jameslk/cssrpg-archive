@@ -43,10 +43,10 @@
 /*	//////////////////////////////////////
 	CRPG_Commands Class
 	////////////////////////////////////// */
-template class CRPG_LinkedList<CRPG_Commands>;
-template<> CRPG_Commands* CRPG_LinkedList<CRPG_Commands>::ll_first;
-template<> CRPG_Commands* CRPG_LinkedList<CRPG_Commands>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPG_Commands>::ll_count;
+template class CRPG_StaticLinkedList<CRPG_Commands>;
+template<> CRPG_Commands* CRPG_StaticLinkedList<CRPG_Commands>::ll_first = NULL;
+template<> CRPG_Commands* CRPG_StaticLinkedList<CRPG_Commands>::ll_last = NULL;
+template<> unsigned int CRPG_StaticLinkedList<CRPG_Commands>::ll_count = 0;
 
 CRPG_Commands::CRPG_Commands(char *reg, char *desc, unsigned int req_argu, char *argu_template, rpgcmd_func *func) {
 	strncpy(name, reg, 63);
@@ -72,21 +72,21 @@ CRPG_Commands::~CRPG_Commands() {
 
 void CRPG_Commands::ExecCmd(void) {
 	CRPG_Commands *cmd;
-	char *alias = (char*)CRPG::s_engine()->Cmd_Argv(0)+RPGCMD_PREFIX_LEN;
+	char *alias = (char*)s_engine->Cmd_Argv(0)+RPGCMD_PREFIX_LEN;
 	char **argv;
-	int argc = CRPG::s_engine()->Cmd_Argc()-1, i, result;
+	int argc = s_engine->Cmd_Argc()-1, i, result;
 
 	if(argc) {
 		argv = (char**)malloc(argc*sizeof(char*));
 		for(i = 0;i < argc;i++)
-			argv[i] = (char*)CRPG::s_engine()->Cmd_Argv(i+1);
+			argv[i] = (char*)s_engine->Cmd_Argv(i+1);
 	}
 
 	for(cmd = ll_first;cmd != NULL;cmd = cmd->ll_next) {
 		if(CRPG::istrcmp((char*)alias, cmd->name)) {
 			if((unsigned int)argc >= cmd->req_argc)
-				result = cmd->call(CRPG::s_engine()->Cmd_Argc()-1, argv,
-					(char*)CRPG::s_engine()->Cmd_Args(), alias-RPGCMD_PREFIX_LEN);
+				result = cmd->call(s_engine->Cmd_Argc()-1, argv,
+					(char*)s_engine->Cmd_Args(), alias-RPGCMD_PREFIX_LEN);
 			else
 				CRPG::ConsoleMsg("%s%s %s", NULL, RPGCMD_PREFIX, cmd->name, cmd->arg_template);
 
@@ -371,7 +371,6 @@ RPG_CMD(setupgradelvl, "Set a player's Upgrade Level", 3, "<player name | userid
 	oldlvl = player->items[index].level;
 	player->items[index].level = newlvl;
 	item->sell_item((void*)player); /* do any item-specific deactivation */
-	CRPGI::PlayerUpdate(player);
 
 	CRPG::ConsoleMsg("%s now has %s Level %d (previously Level %d)",
 		thiscmd, player->name(), item->name, newlvl, oldlvl);
@@ -413,7 +412,6 @@ RPG_CMD(giveall, "Give a player all the Upgrades available", 1, "<player name | 
 		if(CRPG::item_types[i].enable) {
 			player->items[i].level = CRPG::item_types[i].maxlevel;
 			CRPG::item_types[i].buy_item((void*)player);
-			CRPGI::PlayerUpdate(player);
 		}
 	}
 

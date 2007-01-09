@@ -30,7 +30,7 @@ typedef void (var_callback)(CRPG_Setting *setting, char *str, char *oldstr);
 enum var_type {var_str, var_float, var_ufloat, var_int, var_uint, var_bool};
 
 #include "cssrpg_misc.h"
-class CRPG_Setting: public CRPG_LinkedList<CRPG_Setting> {
+class CRPG_Setting: public CRPG_StaticLinkedList<CRPG_Setting> {
 	/* Private Functions */
 	void setval_for_type(void);
 	void* getval_for_type(void);

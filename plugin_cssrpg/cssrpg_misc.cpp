@@ -46,15 +46,6 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-extern IVEngineServer *engine;
-extern IPlayerInfoManager *playerinfomanager;
-extern CGlobalVars *gpGlobals;
-extern IEngineSound *esounds;
-extern IFileSystem *filesystem;
-extern IServerGameDLL *gamedll;
-extern IServerPluginHelpers *helpers;
-extern ICvar *cvar;
-
 /*	//////////////////////////////////////
 	CRPG_Utils Class
 	////////////////////////////////////// */
@@ -64,38 +55,18 @@ int CRPG_Utils::hinttext = -1;
 int CRPG_Utils::vguimenu = -1;
 
 int CRPG_Utils::maxClients(void) {
-	return gpGlobals->maxClients;
+	return s_globals->maxClients;
 }
 
 int CRPG_Utils::currentClients(void) {
-	return engine->GetEntityCount();
-}
-
-IVEngineServer* CRPG_Utils::s_engine(void) {
-	return engine;
-}
-
-IPlayerInfoManager* CRPG_Utils::s_playerinfo(void) {
-	return playerinfomanager;
-}
-
-CGlobalVars* CRPG_Utils::s_globals(void) {
-	return gpGlobals;
-}
-
-IFileSystem* CRPG_Utils::s_filesys(void) {
-	return filesystem;
-}
-
-IServerPluginHelpers* CRPG_Utils::s_helpers(void) {
-	return helpers;
+	return s_engine->GetEntityCount();
 }
 
 unsigned int CRPG_Utils::IsValidEdict(edict_t *e) {
 	if(e == NULL)
 		return 0;
 
-	if(engine->GetPlayerUserId(e) < 0)
+	if(s_engine->GetPlayerUserId(e) < 0)
 		return 0;
 	else
 		return 1;
@@ -107,8 +78,8 @@ unsigned int CRPG_Utils::IsValidIndex(int index) {
 	if((index < 0) || (index > maxClients()))
 		return 0;
 
-	e = engine->PEntityOfEntIndex(index);
-	if(engine->GetPlayerUserId(e) < 0)
+	e = s_engine->PEntityOfEntIndex(index);
+	if(s_engine->GetPlayerUserId(e) < 0)
 		return 0;
 	else
 		return 1;
@@ -119,11 +90,11 @@ int CRPG_Utils::UserIDtoIndex(int userid) {
 	IPlayerInfo *info;
 
 	for(int i = 1;i <= maxClients();i++) {  //int maxplayers; has to be added after the includes and clientMax=maxplayers; in the ServerActivate function
-		player = engine->PEntityOfEntIndex(i);
+		player = s_engine->PEntityOfEntIndex(i);
 		if(!player || player->IsFree())
 			continue;
 
-		info = playerinfomanager->GetPlayerInfo(player);
+		info = s_playerinfomanager->GetPlayerInfo(player);
 		if(info == NULL)
 			continue;
  
@@ -141,11 +112,11 @@ edict_t* CRPG_Utils::UserIDtoEdict(int userid) {
 	int i;
 
 	for(i = 1;i <= maxClients();i++) {  //int maxplayers; has to be added after the includes and clientMax=maxplayers; in the ServerActivate function
-		player = engine->PEntityOfEntIndex(i);
+		player = s_engine->PEntityOfEntIndex(i);
 		if(!player || player->IsFree())
 			continue;
 
-		info = playerinfomanager->GetPlayerInfo(player);
+		info = s_playerinfomanager->GetPlayerInfo(player);
 		if(info == NULL)
 			continue;
  
@@ -158,27 +129,27 @@ edict_t* CRPG_Utils::UserIDtoEdict(int userid) {
 }
 
 edict_t* CRPG_Utils::IndextoEdict(int index) {
-	return engine->PEntityOfEntIndex(index);
+	return s_engine->PEntityOfEntIndex(index);
 }
 
 int CRPG_Utils::IndextoUserID(int index) {
-	return engine->GetPlayerUserId(engine->PEntityOfEntIndex(index));
+	return s_engine->GetPlayerUserId(s_engine->PEntityOfEntIndex(index));
 }
 
 int CRPG_Utils::EdicttoIndex(edict_t *e) {
-	return engine->IndexOfEdict(e);
+	return s_engine->IndexOfEdict(e);
 }
 
 int CRPG_Utils::EdicttoUserid(edict_t *e) {
-	return engine->GetPlayerUserId(e);
+	return s_engine->GetPlayerUserId(e);
 }
 
 IPlayerInfo* CRPG_Utils::EdicttoPlayerInfo(edict_t *e) {
-	return playerinfomanager->GetPlayerInfo(e);
+	return s_playerinfomanager->GetPlayerInfo(e);
 }
 
 const char* CRPG_Utils::EdicttoSteamID(edict_t *e) {
-	IPlayerInfo *info = playerinfomanager->GetPlayerInfo(e);
+	IPlayerInfo *info = s_playerinfomanager->GetPlayerInfo(e);
 
 	return info->GetNetworkIDString();
 }
@@ -188,7 +159,7 @@ int CRPG_Utils::UserMessageIndex(char *name) {
 	int i, sizereturn = 0;
 
 	for(i = 1;i < 30;i++) {
-		gamedll->GetUserMessageInfo(i, cmpname, 256, sizereturn);
+		s_gamedll->GetUserMessageInfo(i, cmpname, 256, sizereturn);
 		if(name && !strcmp(name, cmpname))
 			return i;
 	}
@@ -205,33 +176,33 @@ int CRPG_Utils::FindPlayer(char *str) {
 	if(!userid) {
 		/* Search for player by name */
 		for(i = 1;i <= max;i++) {
-			player = engine->PEntityOfEntIndex(i);
+			player = s_engine->PEntityOfEntIndex(i);
 			if(!player || player->IsFree())
 				continue;
 
-			info = playerinfomanager->GetPlayerInfo(player);
+			info = s_playerinfomanager->GetPlayerInfo(player);
 			if(info == NULL)
 				continue;
 
 			if(CRPG_Utils::istrcmp(str, (char*)info->GetNetworkIDString()))
-				return engine->IndexOfEdict(player);
+				return s_engine->IndexOfEdict(player);
 			else if(CRPG_Utils::istrstr((char*)info->GetName(), str) != NULL)
-				return engine->IndexOfEdict(player);
+				return s_engine->IndexOfEdict(player);
 		}
 	}
 	else {
 		/* Search for player by userid */
 		for(i = 1;i <= max;i++) {
-			player = engine->PEntityOfEntIndex(i);
+			player = s_engine->PEntityOfEntIndex(i);
 			if(!player || player->IsFree())
 				continue;
 	 
-			info = playerinfomanager->GetPlayerInfo(player);
+			info = s_playerinfomanager->GetPlayerInfo(player);
 			if(info == NULL)
 				continue;
 
 			if(info->GetUserID() == userid)
-				return engine->IndexOfEdict(player);
+				return s_engine->IndexOfEdict(player);
 		}
 	}
 
@@ -258,10 +229,10 @@ void CRPG_Utils::ChatAreaMsg(int index, char *msgf, ...) {
 
 	sprintf(msg, "%s\n", msg);
 
-	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
+	buffer = s_engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
 	buffer->WriteByte(3);
 	buffer->WriteString(msg);
-	engine->MessageEnd();
+	s_engine->MessageEnd();
 
 	return ;
 }
@@ -288,10 +259,10 @@ void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...) {
 		sprintf(msg, "%s\n", msg);
 
 		filter.AddRecipient(player->index);
-		buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
+		buffer = s_engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
 		buffer->WriteByte(3);
 		buffer->WriteString(msg);
-		engine->MessageEnd();
+		s_engine->MessageEnd();
 	}
 	else {
 		i = CRPG_Player::player_count;
@@ -309,10 +280,10 @@ void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...) {
 
 				filter.RemoveAllRecipients();
 				filter.AddRecipient(player->index);
-				buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
+				buffer = s_engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), textmsg);
 				buffer->WriteByte(3);
 				buffer->WriteString(msg);
-				engine->MessageEnd();
+				s_engine->MessageEnd();
 			}
 		}
 	}
@@ -338,10 +309,10 @@ void CRPG_Utils::HintTextMsg(int index, char *msgf, ...) {
 	Q_vsnprintf(msg, sizeof(msg)-1, msgf, ap);
 	va_end(ap);
 
-	buffer = engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), hinttext);
+	buffer = s_engine->UserMessageBegin(static_cast<IRecipientFilter*>(&filter), hinttext);
 	buffer->WriteByte(-1);
 	buffer->WriteString(msg);
-	engine->MessageEnd();
+	s_engine->MessageEnd();
 
 	return ;
 }
@@ -357,14 +328,18 @@ void CRPG_Utils::EmitSound(int index, char *sound_path, float vol, CRPG_Player *
 	else
 		filter.AddRecipient(index);
 
-	if(!esounds->IsSoundPrecached(sound_path))
-		esounds->PrecacheSound(sound_path, true);
+	if(!s_esounds->IsSoundPrecached(sound_path))
+		s_esounds->PrecacheSound(sound_path, true);
 
 	if(follow == NULL)
-		esounds->EmitSound((IRecipientFilter&)filter, index, CHAN_AUTO, sound_path, vol, 0);
+		s_esounds->EmitSound((IRecipientFilter&)filter, index, CHAN_AUTO,
+						   sound_path, vol, 0);
 	else
-		esounds->EmitSound((IRecipientFilter&)filter, follow->index, CHAN_AUTO, sound_path,
-		vol, ATTN_NORM, 0, PITCH_NORM, &follow->cbp()->m_vecAbsOrigin, NULL, NULL, true, 0.0f, follow->index);
+		s_esounds->EmitSound((IRecipientFilter&)filter, follow->index, CHAN_AUTO,
+		                   sound_path, vol, ATTN_NORM, 0, PITCH_NORM,
+						   &follow->cbp()->m_vecAbsOrigin,
+						   NULL, NULL, true, 0.0f, follow->index);
+	#pragma message("NOTICE: Implement offset here")
 
 	return ;
 }
@@ -378,7 +353,7 @@ void CRPG_Utils::ShowMOTD(int index, char *title, char *msg, motd_type type, cha
 	else
 		filter.AddRecipient(index);
 
-	buffer = engine->UserMessageBegin(&filter, vguimenu);
+	buffer = s_engine->UserMessageBegin(&filter, vguimenu);
 	buffer->WriteString("info");
 	buffer->WriteByte(1);
 
@@ -417,7 +392,7 @@ void CRPG_Utils::ShowMOTD(int index, char *title, char *msg, motd_type type, cha
 		buffer->WriteString(cmd); // exec this command if panel closed
 	}
 
-	engine->MessageEnd();
+	s_engine->MessageEnd();
 	return ;
 }
 
@@ -426,7 +401,7 @@ void CRPG_Utils::SetCheats(char enable, char temporary) {
 	static char already_set = 0;
 
 	if(cheats_cvar == (ConVar*)2)
-		cheats_cvar = cvar->FindVar("sv_cheats");
+		cheats_cvar = s_cvar->FindVar("sv_cheats");
 
 	WARN_IF(cheats_cvar == NULL, return)
 
@@ -467,7 +442,7 @@ void CRPG_Utils::ConsoleMsg(char *msgf, char *msg_type, ...) {
 	else
 		CRPG_Utils::snprintf(msg, 1023, "echo \"CSS:RPG %s: %s\"\n", msg_type, msg);
 
-	engine->ServerCommand(msg);
+	s_engine->ServerCommand(msg);
 
 	return ;
 }
@@ -548,6 +523,52 @@ unsigned int CRPG_Utils::steamid_check(char *steamid) {
     }
     
     return 1;
+}
+
+/**
+ * @brief Convert an integer string to an unsigned long integer.
+ */
+unsigned long CRPG_Utils::atoul(char *str) {
+	int val = 0;
+
+	while((*str == ' ') || (*str == '\t'))
+		str++;
+
+	switch(*str) {
+		case '-':
+		case '+':
+			str++;
+	}
+
+	while(isdigit(*str))
+		val = (val*10) + (*str++ - '0');
+
+	return val;
+}
+
+/**
+ * @brief Convert a hex string to an unsigned long integer.
+ */
+unsigned long CRPG_Utils::hextoul(char *hex) {
+    int i, len;
+    unsigned long num = 0;
+    char chr;
+    
+    len = strlen(hex);
+    for(i = 0;i < len;i++) {
+        if(i)
+            num <<= 4;
+        
+        chr = toupper(hex[i]);
+        if(chr >= '0' && chr <= '9') /* Is this a number? */
+            num |= (chr - '0');
+        else if(chr >= 'A' && chr <= 'F') /* Between A and F */
+            num |= 10 + (chr - 'A');
+        else
+            return 0;
+    }
+    
+    return num;
 }
 
 unsigned char* CRPG_Utils::ustrncpy(unsigned char *dest, const unsigned char *src, int len) {
@@ -774,10 +795,10 @@ void CRPG_Utils::ShutDown(void) {
 /*	//////////////////////////////////////
 	CRPG_Timer Class 
 	////////////////////////////////////// */
-template class CRPG_LinkedList<CRPG_Timer>;
-template<> CRPG_Timer* CRPG_LinkedList<CRPG_Timer>::ll_first;
-template<> CRPG_Timer* CRPG_LinkedList<CRPG_Timer>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPG_Timer>::ll_count;
+template class CRPG_StaticLinkedList<CRPG_Timer>;
+template<> CRPG_Timer* CRPG_StaticLinkedList<CRPG_Timer>::ll_first;
+template<> CRPG_Timer* CRPG_StaticLinkedList<CRPG_Timer>::ll_last;
+template<> unsigned int CRPG_StaticLinkedList<CRPG_Timer>::ll_count;
 float CRPG_Timer::nextrun_tm;
 
 bool comp_times(CRPG_Timer *timer1, CRPG_Timer *timer2) {
@@ -801,7 +822,7 @@ CRPG_Timer* CRPG_Timer::AddTimer(float secs, unsigned int repeats, timer_func *f
 	int i;
 	va_list ap;
 
-	now = gpGlobals->curtime;
+	now = s_globals->curtime;
 
 	timer->inc_tm = secs;
 
@@ -846,7 +867,7 @@ void CRPG_Timer::RunEvents(void) {
 	if(!nextrun_tm)
 		return ;
 
-	now = gpGlobals->curtime;
+	now = s_globals->curtime;
 	if(now < nextrun_tm)
 		return ;
 

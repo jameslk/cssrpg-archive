@@ -29,6 +29,8 @@
 	#include <dirent.h>
 #endif
 
+#include "cssrpg_interface.h"
+
 class CRPG_Player;
 class CRPG_Menu;
 class IVEngineServer;
@@ -74,12 +76,6 @@ public:
 	static int maxClients(void);
 	static int currentClients(void);
 
-	static IVEngineServer* s_engine(void);
-	static IPlayerInfoManager* s_playerinfo(void);
-	static CGlobalVars* s_globals(void);
-	static IFileSystem* CRPG_Utils::s_filesys(void);
-	static IServerPluginHelpers* CRPG_Utils::s_helpers(void);
-
 	static unsigned int IsValidEdict(edict_t *e);
 	static unsigned int IsValidIndex(int index);
 	static int UserIDtoIndex(int userid);
@@ -105,6 +101,8 @@ public:
 	static void DebugMsg(int nolog, char *msgf, ...);
 
 	static unsigned int steamid_check(char *steamid);
+	static unsigned long atoul(char *str);
+	static unsigned long hextoul(char *hex);
 	static unsigned char* ustrncpy(unsigned char *dest, const unsigned char *src, int len);
 	static unsigned int istrcmp(char *str1, char *str2);
 	static unsigned int memrcmp(void *mem_end1, void *mem_end2, size_t len);
@@ -134,10 +132,12 @@ public:
 		code; \
 	}
 
-/*	//////////////////////////////////////
-	CRPG_PlayerClass Template Class
-	////////////////////////////////////// */
 class CBasePlayer;
+/**
+ * @brief Player Tracker Template Class
+ *
+ * @{
+ */
 template <class T> class CRPG_PlayerClass {
 protected:
 	static T **nodes;
@@ -206,15 +206,15 @@ public:
 	int userid;
 
 	edict_t* e(void) {
-		return CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index);
+		return s_engine->PEntityOfEntIndex(this->index);
 	}
 
 	IPlayerInfo* info(void) {
-		return CRPG_Utils::s_playerinfo()->GetPlayerInfo(CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index));
+		return s_playerinfomanager->GetPlayerInfo(s_engine->PEntityOfEntIndex(this->index));
 	}
 
 	CBasePlayer* cbp(void) {
-		edict_t *e = CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index);
+		edict_t *e = s_engine->PEntityOfEntIndex(this->index);
 		if(CRPG_Utils::IsValidEdict(e))
 			return reinterpret_cast<CBasePlayer*>(e->GetUnknown()->GetBaseEntity());
 		else
@@ -222,8 +222,8 @@ public:
 	}
 
 	char isfake(void) {
-		edict_t *e = CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index);
-		IPlayerInfo *info = CRPG_Utils::s_playerinfo()->GetPlayerInfo(e);
+		edict_t *e = s_engine->PEntityOfEntIndex(this->index);
+		IPlayerInfo *info = s_playerinfomanager->GetPlayerInfo(e);
 		if(info != NULL)
 			return info->IsFakeClient();
 		else
@@ -231,8 +231,8 @@ public:
 	}
 
 	const char* name(void) {
-		edict_t *e = CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index);
-		IPlayerInfo *info = CRPG_Utils::s_playerinfo()->GetPlayerInfo(e);
+		edict_t *e = s_engine->PEntityOfEntIndex(this->index);
+		IPlayerInfo *info = s_playerinfomanager->GetPlayerInfo(e);
 		if(info != NULL)
 			return info->GetName();
 		else
@@ -240,8 +240,8 @@ public:
 	}
 
 	const char* steamid(void) {
-		edict_t *e = CRPG_Utils::s_engine()->PEntityOfEntIndex(this->index);
-		IPlayerInfo *info = CRPG_Utils::s_playerinfo()->GetPlayerInfo(e);
+		edict_t *e = s_engine->PEntityOfEntIndex(this->index);
+		IPlayerInfo *info = s_playerinfomanager->GetPlayerInfo(e);
 		if(info != NULL)
 			return info->GetNetworkIDString();
 		else
@@ -268,11 +268,16 @@ public:
 		return nodes[index-1];
 	}
 };
+/** @} */
 
-/*	//////////////////////////////////////
-	CRPG_LinkedList Template Class
-	////////////////////////////////////// */
-template <class T> class CRPG_LinkedList {
+/**
+ * @brief Static (Double) Linked List Template Class
+ * @note Don't forget to call ll_init() or to manually initialize ll_first,
+ *       ll_last, and ll_count to 0!
+ *
+ * @{
+ */
+template <class T> class CRPG_StaticLinkedList {
 protected:
 	/* Protected Functions */
 	static void ll_init(void) {
@@ -392,11 +397,16 @@ public:
 	T *ll_next;
 	T *ll_prev;
 };
+/** @} */
 
-/*	//////////////////////////////////////
-	CRPG_DynLinkedList Template Class
-	////////////////////////////////////// */
-template <class T> class CRPG_DynLinkedList {
+/**
+ * @brief Dynamic (Double) Linked List Template Class
+ * @note Don't forget to call ll_init() or to manually initialize ll_first,
+ *       ll_last, and ll_count to 0!
+ *
+ * @{
+ */
+template <class T> class CRPG_DynamicLinkedList {
 private:
 	T **first;
 	T **last;
@@ -540,11 +550,12 @@ public:
 	T *ll_next;
 	T *ll_prev;
 };
+/** @} */
 
 typedef void (timer_func)(void *argv[], int argc);
 #define TIMER_FUNC(x) void x(void *argv[], int argc)
 
-class CRPG_Timer: public CRPG_LinkedList<CRPG_Timer> {
+class CRPG_Timer: public CRPG_StaticLinkedList<CRPG_Timer> {
 	/* Private Variables */
 	static float nextrun_tm; /* keep track of the next run time */
 

@@ -18,7 +18,11 @@
 #ifndef CSSRPG_H
 #define CSSRPG_H
 
-#define CSSRPG_VERSION "1.0.3"
+#ifdef WIN32
+#define CSSRPG_VERSION "1.0.5w"
+#else
+#define CSSRPG_VERSION "1.0.5l"
+#endif
 
 #define CSSRPG_DB "cssrpg.db"
 /* Columns: [int player_id] [string name] [string steamid] [int level] [int exp] [int credits] [int lastseen] [language] [int items_id] */
@@ -36,8 +40,9 @@
 #define ITEM_ICESTAB	7
 #define ITEM_FPISTOL	8
 #define ITEM_DENIAL		9
+#define ITEM_IMPULSE	10
 
-#define ITEM_COUNT		10 /* Last item+1 */
+#define ITEM_COUNT		11 /* Last item+1 */
 
 struct item_type {
 	char name[16];
@@ -71,6 +76,7 @@ public:
 	static bool announce_newlvl;
 	
 	static unsigned int icestab_lmtdmg;
+	static char denial_restrict[1024];
 
 	static bool exp_notice;
 	static unsigned int exp_max;

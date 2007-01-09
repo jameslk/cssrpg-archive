@@ -30,10 +30,7 @@
 #include "engine/IEngineSound.h" 
 
 #include "cssrpg.h"
- 
-extern IVEngineServer   *engine; 
-extern IPlayerInfoManager *playerinfomanager; 
-extern IServerPluginHelpers *helpers;
+#include "cssrpg_interface.h"
  
 // memdbgon must be the last include file in a .cpp file!!! 
 #include "tier0/memdbgon.h" 
@@ -69,11 +66,11 @@ void MRecipientFilter::AddAllPlayers(int maxClients) {
 	m_Recipients.RemoveAll();
 	int i; 
 	for (i = 1; i <= maxClients; i++) { 
-		pPlayer = engine->PEntityOfEntIndex(i);
+		pPlayer = s_engine->PEntityOfEntIndex(i);
 		if(!pPlayer || pPlayer->IsFree())
 			continue;
 
-		if(engine->GetPlayerUserId(pPlayer) < 0)
+		if(s_engine->GetPlayerUserId(pPlayer) < 0)
 			continue;
 
 		m_Recipients.AddToTail(i); 

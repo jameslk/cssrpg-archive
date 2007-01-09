@@ -15,8 +15,8 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-/* NOTICE: Some of the code featured here was provided by David "BAILOPAN" Anderson via
-   his blog site.
+/* NOTICE: Some of the code featured here was provided by David "BAILOPAN"
+   Anderson via his blog site.
    LINKS:
    http://www.sourcemod.net/devlog/?p=55
    http://www.sourcemod.net/devlog/?p=56
@@ -32,9 +32,19 @@
 	#include <tlhelp32.h>
 #endif
 
+/* Forward Declarations */
+class CBaseAnimating;
+class CBaseEntity;
+class Vector;
+class QAngle;
+class CBaseCombatCharacter;
+class CBaseCombatWeapon;
+class SendTable;
+class SendProp;
+enum MoveType_t;
+
 #ifdef WIN32
 class CRPG_SigScan {
-private:
 	/* Private Variables */
 	static unsigned char *base_addr;
 	static size_t base_len;
@@ -44,8 +54,8 @@ private:
 	unsigned long sig_len;
 
 	/* Private Functions */
-	static unsigned int parse_maps(char *maps, char *matchpath, long *base, long *len);
-	void* FindSignature(void);
+	void parse_sig(char *sig);
+	void* find_sig(void);
 
 public:
 	/* Public Variables */
@@ -58,7 +68,7 @@ public:
 	~CRPG_SigScan(void);
 
 	static bool GetDllMemInfo(void);
-	void Init(char *name, unsigned char *sig, char *mask, size_t len);
+	void Init(char *name, char *sig);
 };
 
 void init_sigs(void);
@@ -68,13 +78,44 @@ void init_sigs(void);
 void init_lsym_funcs(void);
 #endif
 
-class CBaseAnimating;
-class CBaseEntity;
-class Vector;
-class QAngle;
-class CBaseCombatCharacter;
-class CBaseCombatWeapon;
-enum MoveType_t;
+/**
+ * @brief A class to meddle with network/data properties
+ * @remarks Some of this code was adapted from KinkeyMunkey's CSS:RPG 1.0.4 patch.
+ *			Where would have I been without him?
+ */
+class CRPG_ExternProps {
+	/* Private Functions */
+	static SendProp* scan_sendtable(SendTable *tbl, char *name);
+	static void print_sendtable(FILE *fptr, SendTable *tbl, int depth);
+
+public:
+	/* Public Variables */
+	/**
+	 * @name Offset Structures
+	 * @{
+	 */
+	static struct netp_s {
+		long m_iHealth;
+		long m_nRenderMode;
+		long m_clrRender;
+		long m_nRenderFX;
+	} netp;
+
+	static struct datap_s {
+		long m_vecVelocity;
+		long m_vecAbsOrigin;
+	} datap;
+	/* @} */
+
+	/* Public Functions */
+	static void Init(IServerGameDLL *gamedll);
+
+	static long FindNetProp(ServerClass *sc, char *path);
+	static long FindDataProp(CBaseEntity *cbe, char *name);
+
+	static void DumpNetProps(FILE *fptr, ServerClass *sc);
+	static void DumpDataProps(FILE *fptr, CBaseEntity *cbe);
+};
 
 /* Hacked Functions */
 void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPCOnly = false, float flSize = 0.0f, bool bCalledByLevelDesigner = false);
@@ -83,5 +124,138 @@ CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbc
 int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound = 0);
 void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide);
 CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, int iSubType = 0);
+
+#define CHECK_DATAPROP(NAME) \
+	if(CRPG_ExternProps::datap.NAME == -1) { \
+		CRPG_ExternProps::datap.NAME = CRPG_ExternProps::FindDataProp(cbe, #NAME); \
+		if(CRPG_ExternProps::datap.NAME == -1) \
+			return NULL; \
+	}
+
+/**
+ * @brief Returns a Vector pointer to an entity's velocity.
+ */
+inline Vector* CBasePlayer_Velocity(CBaseEntity *cbe) {
+	CHECK_DATAPROP(m_vecVelocity);
+
+	return (Vector*)((char*)cbe + CRPG_ExternProps::datap.m_vecVelocity);
+}
+
+/**
+ * @brief Returns Vector pointer to an entity's absolute position.
+ */
+inline Vector* CBasePlayer_GetAbsOrigin(CBaseEntity *cbe) {
+	CHECK_DATAPROP(m_vecAbsOrigin);
+
+	return (Vector*)((char*)cbe + CRPG_ExternProps::datap.m_vecAbsOrigin);
+}
+
+/**
+ * @brief Sets an entity's current health.
+ */
+inline void CBaseEntity_SetHealth(CBaseEntity *cbe, int health) {
+	if(CRPG_ExternProps::netp.m_iHealth == -1)
+		return ;
+
+	*(int*)((char*)cbe + CRPG_ExternProps::netp.m_iHealth) = health;
+	return ;
+}
+
+/**
+ * @brief Gets an entity's current health.
+ */
+inline int CBaseEntity_GetHealth(CBaseEntity *cbe) {
+	if(CRPG_ExternProps::netp.m_iHealth == -1)
+		return 0;
+
+	return *(int*)((char*)cbe + CRPG_ExternProps::netp.m_iHealth);
+}
+
+/**
+ * @brief Sets an entity's render mode.
+ */
+inline void CBaseEntity_SetRenderMode(CBaseEntity *cbe, RenderMode_t mode) {
+	if(CRPG_ExternProps::netp.m_nRenderMode == -1)
+		return ;
+
+	unsigned char *m_nRenderMode = (unsigned char*)((char*)cbe + CRPG_ExternProps::netp.m_nRenderMode);
+	*m_nRenderMode = static_cast<unsigned char>(mode);
+}
+
+/**
+ * @brief Sets an entity's render fx.
+ */
+inline void CBaseEntity_SetRenderFX(CBaseEntity *cbe, RenderFx_t fx) {
+	if(CRPG_ExternProps::netp.m_nRenderFX == -1)
+		return ;
+
+	unsigned char *m_nRenderFX = (unsigned char*)((char*)cbe + CRPG_ExternProps::netp.m_nRenderFX);
+	*m_nRenderFX = static_cast<unsigned char>(fx);
+}
+
+/**
+ * @brief Sets an entity's color and alpha.
+ */
+inline void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a = 255) {
+	if(CRPG_ExternProps::netp.m_clrRender == -1)
+		return ;
+
+	color32 *clr = (color32*)((char*)cbe + CRPG_ExternProps::netp.m_clrRender);
+	
+	clr->r = r;
+	clr->g = g;
+	clr->b = b;
+	clr->a = a;
+
+	return ;
+}
+
+/**
+ * @brief Sets the level of blue tint on an entity.
+ */
+inline void CBaseEntity_SetRenderColorR(CBaseEntity *cbe, byte r) {
+	if(CRPG_ExternProps::netp.m_clrRender == -1)
+		return ;
+
+	color32 *clr = (color32*)((char*)cbe + CRPG_ExternProps::netp.m_clrRender);
+	clr->r = r;
+	return ;
+}
+
+/**
+ * @brief Sets the level of green tint on an entity.
+ */
+inline void CBaseEntity_SetRenderColorG(CBaseEntity *cbe, byte g) {
+	if(CRPG_ExternProps::netp.m_clrRender == -1)
+		return ;
+
+	color32 *clr = (color32*)((char*)cbe + CRPG_ExternProps::netp.m_clrRender);
+	clr->g = g;
+	return ;
+}
+
+/**
+ * @brief Sets the level of red tint on an entity.
+ */
+inline void CBaseEntity_SetRenderColorB(CBaseEntity *cbe, byte b) {
+	if(CRPG_ExternProps::netp.m_clrRender == -1)
+		return ;
+
+	color32 *clr = (color32*)((char*)cbe + CRPG_ExternProps::netp.m_clrRender);
+	clr->b = b;
+	return ;
+}
+
+/**
+ * @brief Sets an entity's alpha color.
+ */
+inline void CBaseEntity_SetRenderColorA(CBaseEntity *cbe, byte a) {
+	if(CRPG_ExternProps::netp.m_clrRender == -1)
+		return ;
+
+	color32 *clr = (color32*)((char*)cbe + CRPG_ExternProps::netp.m_clrRender);
+	clr->a = a;
+	return ;
+}
 
 #endif

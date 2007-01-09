@@ -17,7 +17,10 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <list>
+
+#ifdef WIN32
+#include <windows.h>
+#endif
 
 #include "interface.h"
 #include "filesystem.h"
@@ -27,22 +30,20 @@
 #include "igameevents.h"
 #include "convar.h"
 
+#include "server_class.h"
+
 #include "cssrpg.h"
+#include "cssrpg_interface.h"
 #include "cssrpg_menu.h"
 #include "cssrpg_stats.h"
 #include "cssrpg_commands.h"
 #include "cssrpg_textdb.h"
+#include "cssrpg_hacks.h"
 #include "items/rpgi.h"
 #include "cssrpg_console.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-using namespace std;
-
-extern IVEngineServer *engine;
-extern IPlayerInfoManager *playerinfomanager;
-extern CGlobalVars *gpGlobals;
 
 /*	//////////////////////////////////////
 	Server Console Commands
@@ -76,12 +77,12 @@ CON_COMMAND(cssrpg_debug_menulist, "List all RPG menus") {
 CON_COMMAND(cssrpg_debug_timers, "List all timers") {
 	CRPG_Timer *timer;
 
-	CRPG::DebugMsg("Current Time: %f Timers:", CRPG::s_globals()->curtime);
+	CRPG::DebugMsg("Current Time: %f Timers:", s_globals->curtime);
 
 	for(timer = CRPG_Timer::ll_first;timer != NULL;timer = timer->ll_next)
 		CRPG::DebugMsg("Timer Executes: %f", timer->next_tm);
 
-	CRPG::DebugMsg("* End of timers list", CRPG::s_globals()->curtime);
+	CRPG::DebugMsg("* End of timers list", s_globals->curtime);
 	return ;
 }
 
@@ -94,20 +95,20 @@ CON_COMMAND(cssrpg_debug_giveitem, "Gives a player a new Item Level") {
 	CRPG_Player *player;
 	int player_index, item_index;
 
-	if(CRPG::s_engine()->Cmd_Argc() < 3) {
+	if(s_engine->Cmd_Argc() < 3) {
 		CRPG::DebugMsg("cssrpg_debug_giveitem: Requires 2 arguments");
 		return ;
 	}
 
-	player_index = CRPG::FindPlayer(CRPG::s_engine()->Cmd_Argv(1));
+	player_index = CRPG::FindPlayer(s_engine->Cmd_Argv(1));
 	if(player_index < 0) {
-		CRPG::DebugMsg("cssrpg_debug_giveitem: Couldn't find player: %s", CRPG::s_engine()->Cmd_Argv(1));
+		CRPG::DebugMsg("cssrpg_debug_giveitem: Couldn't find player: %s", s_engine->Cmd_Argv(1));
 		return ;
 	}
 
 	player = IndextoRPGPlayer(player_index);
 
-	item_index = atoi(CRPG::s_engine()->Cmd_Argv(2));
+	item_index = atoi(s_engine->Cmd_Argv(2));
 	if(!player->GiveItem(item_index)) {
 		CRPG::DebugMsg("cssrpg_debug_giveitem: Failed to give player %s Item: %d", player->name(), item_index);
 		return ;
@@ -123,12 +124,12 @@ CON_COMMAND(cssrpg_debug_listdir, "List a directory's contents") {
 	struct file_info file;
 	unsigned int i = 0;
 
-	if(CRPG::s_engine()->Cmd_Argc() < 2) {
+	if(s_engine->Cmd_Argc() < 2) {
 		CRPG::DebugMsg("cssrpg_debug_listdir: Please specify a path");
 		return ;
 	}
 
-	while(CRPG::traverse_dir(file, CRPG::s_engine()->Cmd_Argv(1), i++) != END_OF_DIR) {
+	while(CRPG::traverse_dir(file, s_engine->Cmd_Argv(1), i++) != END_OF_DIR) {
 		if(file.type == file_normal)
 			CRPG::DebugMsg("File: %s", file.name);
 		else
@@ -142,12 +143,12 @@ CON_COMMAND(cssrpg_debug_langkeys, "List a language's keys") {
 	unsigned int i;
 	CRPG_TextDB *txtdb;
 
-	if(CRPG::s_engine()->Cmd_Argc() < 2) {
+	if(s_engine->Cmd_Argc() < 2) {
 		CRPG::DebugMsg("cssrpg_debug_langkeys: Please specify a language file");
 		return ;
 	}
 
-	txtdb = FiletoTextDB(CRPG::s_engine()->Cmd_Argv(1));
+	txtdb = FiletoTextDB(s_engine->Cmd_Argv(1));
 	if(txtdb == NULL) {
 		CRPG::DebugMsg("cssrpg_debug_langkeys: Language file was not found");
 		return ;
@@ -157,9 +158,58 @@ CON_COMMAND(cssrpg_debug_langkeys, "List a language's keys") {
 	CRPG::DebugMsg("Language Name: %s", txtdb->name);
 
 	for(i = 0;i < TXTDB_KEY_COUNT;i++)
-		CRPG::DebugMsg("Key %s: %s", txtdb->txt.key_array[i]->name, txtdb->txt.key_array[i]->s);
+		CRPG::DebugMsg("Key %s: %s", "hello dear aunt", txtdb->txt.key_array[i]->s);
 
 	CRPG::DebugMsg("*** cssrpg_debug_langkeys: End ***");
+
+	return ;
+}
+
+CON_COMMAND(cssrpg_debug_netprop, "Finds a network property given a class name and member") {
+	int i = 0, props = 0, offset = 0;
+	ServerClass *sc = s_gamedll->GetAllServerClasses();
+
+	if(s_engine->Cmd_Argc() < 3) {
+		CRPG::DebugMsg("cssrpg_debug_netprop: Requires 2 arguments");
+		return ;
+	}
+
+	while(sc) {
+		if(CRPG::istrcmp((char*)sc->GetName(), s_engine->Cmd_Argv(1))) {
+			props = sc->m_pTable->GetNumProps();
+
+			for(i = 0; i < props; i++) {
+				if(CRPG::istrcmp((char*)sc->m_pTable->GetProp(i)->GetName(), s_engine->Cmd_Argv(2))) {
+					if((offset = sc->m_pTable->GetProp(i)->GetOffset()) < 0)
+						offset = offset * -1;
+					
+					CRPG::DebugMsg("Offset: %d", offset);
+					return ;
+				} 
+			}
+
+			CRPG::DebugMsg("Offset: Not Found");
+			return ;
+		}
+
+		sc = sc->m_pNext;
+	}
+
+	CRPG::DebugMsg("Offset: Not Found");
+	return ;
+}
+
+CON_COMMAND(cssrpg_debug_dump_netprops, "Dumps all network properties to netprops.txt") {
+	FILE *fptr;
+
+	fptr = fopen("netprops.txt", "w");
+	if(fptr == NULL)
+		CRPG::DebugMsg("Unable to open netprops.txt");
+
+	CRPG_ExternProps::DumpNetProps(fptr, s_gamedll->GetAllServerClasses());
+	CRPG::DebugMsg("All network properties dumped to netprops.txt");
+
+	fclose(fptr);
 
 	return ;
 }
@@ -173,10 +223,10 @@ static ConVar cssrpg_version("cssrpg_version", CSSRPG_VERSION,
 /*	//////////////////////////////////////
 	CRPG_Setting Class
 	////////////////////////////////////// */
-template class CRPG_LinkedList<CRPG_Setting>;
-template<> CRPG_Setting* CRPG_LinkedList<CRPG_Setting>::ll_first;
-template<> CRPG_Setting* CRPG_LinkedList<CRPG_Setting>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPG_Setting>::ll_count;
+template class CRPG_StaticLinkedList<CRPG_Setting>;
+template<> CRPG_Setting* CRPG_StaticLinkedList<CRPG_Setting>::ll_first;
+template<> CRPG_Setting* CRPG_StaticLinkedList<CRPG_Setting>::ll_last;
+template<> unsigned int CRPG_StaticLinkedList<CRPG_Setting>::ll_count;
 
 void CRPG_Setting::Init(void) {
 	ll_init();
@@ -372,6 +422,7 @@ unsigned int CRPG_GlobalSettings::bot_maxlevel;
 bool CRPG_GlobalSettings::announce_newlvl;
 
 unsigned int CRPG_GlobalSettings::icestab_lmtdmg;
+char CRPG_GlobalSettings::denial_restrict[1024];
 
 bool CRPG_GlobalSettings::exp_notice;
 unsigned int CRPG_GlobalSettings::exp_max;
@@ -468,6 +519,13 @@ void CRPG_GlobalSettings::InitSettings(void) {
 	CRPG_Setting::CreateVar("denial_maxlevel", "3", "Denial item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
 	CRPG_Setting::CreateVar("denial_cost", "25", "Denial item start cost", var_uint, &type->start_cost);
 	CRPG_Setting::CreateVar("denial_icost", "50", "Denial item cost increment for each level", var_uint, &type->inc_cost);
+	CRPG_Setting::CreateVar("denial_restrict", "", "Space delimited list of restricted weapons (e.g. awp g3sg1 m249)", var_str, denial_restrict);
+
+	type = &CRPG::item_types[ITEM_IMPULSE];
+	CRPG_Setting::CreateVar("impulse_enable", "1", "Sets the Impulse item to enabled (1) or disabled (0)", var_bool, &type->enable);
+	CRPG_Setting::CreateVar("impulse_maxlevel", "5", "Impulse item maximum level", var_uint, &type->maxlevel, CRPGI::CVARItemMaxLvl);
+	CRPG_Setting::CreateVar("impulse_cost", "20", "Impulse item start cost", var_uint, &type->start_cost);
+	CRPG_Setting::CreateVar("impulse_icost", "20", "Impulse item cost increment for each level", var_uint, &type->inc_cost);
 
 	CRPG_Setting::CreateVar("exp_notice", "1", "Sets notifications to players when they gain Experience", var_bool, &exp_notice);
 	CRPG_Setting::CreateVar("exp_max", "50000", "Maximum experience that will ever be required", var_uint, &exp_max);

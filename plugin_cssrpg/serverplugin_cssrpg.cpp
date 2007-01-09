@@ -94,11 +94,13 @@
 #include "MRecipientFilter.h"
 #include "shake.h"
 #include "ivoiceserver.h"
-#include "engine/IVEngineCache.h"
+#include "datacache/idatacacheV1.h"
 
 #include "icvar.h"
 
 #include "cssrpg.h"
+#include "cssrpg_interface.h"
+#include "cssrpg_fvars.h"
 #include "cssrpg_menu.h"
 #include "cssrpg_stats.h"
 #include "cssrpg_console.h"
@@ -115,170 +117,148 @@
 #include "items/rpgi_icestab.h"
 #include "items/rpgi_denial.h"
 #include "items/rpgi_fpistol.h"
+#include "items/rpgi_impulse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-using namespace std;
-
-// Interfaces from the engine
-IVEngineServer	*engine = NULL; // helper functions (messaging clients, loading content, making entities, running commands, etc)
-IFileSystem		*filesystem = NULL; // file I/O 
-IGameEventManager2 *gameeventmanager = NULL; // game events interface /* 2 */
-IPlayerInfoManager *playerinfomanager = NULL; // game dll interface to interact with players
-IBotManager *botmanager = NULL; // game dll interface to interact with bots
-IServerPluginHelpers *helpers = NULL; // special 3rd party plugin helpers from the engine
-IUniformRandomStream *randomStr = NULL;
-IEngineTrace *enginetrace = NULL;
-IServerGameDLL *gamedll = NULL;
-
-IVoiceServer	*g_pVoiceServer = NULL;
-ICvar			*cvar = NULL;
-INetworkStringTableContainer *networkstringtable = NULL;
-IStaticPropMgrServer *staticpropmgr = NULL;
-IEngineSound *enginesound = NULL;
-ISpatialPartition *partition = NULL;
-IVModelInfo *modelinfo = NULL;
-IVEngineCache *engineCache = NULL;
-IEffects *effects = NULL; // fx	
-IEngineSound *esounds = NULL; // sound 
-ISoundEmitterSystemBase *soundemitterbase = NULL;
-
-CGlobalVars *gpGlobals = NULL;
 
 // function to initialize any cvars/command in this plugin
 void InitCVars(CreateInterfaceFn cvarFactory);
 void Bot_RunAll(void);
 
-//---------------------------------------------------------------------------------
-// Purpose: CSS RPG plugin class
-//---------------------------------------------------------------------------------
-class CPluginCSSRPG: public IServerPluginCallbacks, public IGameEventListener2 { /* 2 */
-public:
-	CPluginCSSRPG();
-	~CPluginCSSRPG();
+IVEngineServer *s_engine = NULL;
+IFileSystem *s_filesystem = NULL;
+IGameEventManager2 *s_gameeventmanager = NULL;
+IPlayerInfoManager *s_playerinfomanager = NULL;
+IBotManager *s_botmanager = NULL;
+IServerPluginHelpers *s_helpers = NULL;
+IUniformRandomStream *s_randomStr = NULL;
+IEngineTrace *s_enginetrace = NULL;
+IServerGameDLL *s_gamedll = NULL;
 
-	// IServerPluginCallbacks methods
-	virtual bool			Load(	CreateInterfaceFn interfaceFactory, CreateInterfaceFn gameServerFactory);
-	virtual void			Unload(void);
-	virtual void			Pause(void);
-	virtual void			UnPause(void);
-	virtual const char     *GetPluginDescription(void);      
-	virtual void			LevelInit(char const *pMapName);
-	virtual void			ServerActivate(edict_t *pEdictList, int edictCount, int clientMax);
-	virtual void			GameFrame(bool simulating);
-	virtual void			LevelShutdown(void);
-	virtual void			ClientActive(edict_t *pEntity);
-	virtual void			ClientDisconnect(edict_t *pEntity);
-	virtual void			ClientPutInServer(edict_t *pEntity, char const *playername);
-	virtual void			SetCommandClient(int index);
-	virtual void			ClientSettingsChanged(edict_t *pEdict);
-	virtual PLUGIN_RESULT	ClientConnect(bool *bAllowConnect, edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen);
-	virtual PLUGIN_RESULT	ClientCommand(edict_t *pEntity);
-	virtual PLUGIN_RESULT	NetworkIDValidated(const char *pszUserName, const char *pszNetworkID);
+IVoiceServer *s_voiceserver = NULL;
+ICvar *s_cvar = NULL;
+INetworkStringTableContainer *s_networkstringtable = NULL;
+IStaticPropMgrServer *s_staticpropmgr = NULL;
+IEngineSound *s_enginesound = NULL;
+ISpatialPartition *s_partition = NULL;
+IVModelInfo *s_modelinfo = NULL;
+IDataCache *s_dataCache = NULL;
+IEffects *s_effects = NULL; // fx	
+IEngineSound *s_esounds = NULL; // sound 
+ISoundEmitterSystemBase *s_soundemitterbase = NULL;
 
-	// IGameEventListener Interface
-	virtual void FireGameEvent(IGameEvent *event); //KeyValues *event
+CGlobalVars *s_globals = NULL;
 
-	virtual int GetCommandIndex() { return m_iClientCommandIndex; }
+/**
+ * @brief File variables needed here.
+ *
+ * @{
+ */
+CRPG_FileVar ServerGameDLL_Version("ServerGameDLL_Version", "ServerGameDLL006", "interface_versions/ServerGameDLL");
+CRPG_FileVar VEngineRandom_Version("VEngineRandom_Version", "VEngineRandom001", "interface_versions/VEngineRandom");
+CRPG_FileVar EngineTraceServer_Version("EngineTraceServer_Version", "EngineTraceServer003", "interface_versions/EngineTraceServer");
+CRPG_FileVar IServerPluginHelpers_Version("IServerPluginHelpers_Version", "ISERVERPLUGINHELPERS001", "interface_versions/IServerPluginHelpers");
+CRPG_FileVar GameEventsManager_Version("GameEventsManager_version", "GAMEEVENTSMANAGER002", "interface_versions/GameEventsManager");
+/** @} */
 
-private:
-	/* Private Variables */
-	int m_iClientCommandIndex;
-	char is_shutdown;
-
-	/* Private Functions */
-	void RunEvents(void);
-};
-
-
-// 
-// The plugin is a static singleton that is exported as an interface
-//
+/*	//////////////////////////////////////
+	CPluginCSSRPG Class 
+	////////////////////////////////////// */
 CPluginCSSRPG g_CSSRPGPlugin;
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CPluginCSSRPG, IServerPluginCallbacks, INTERFACEVERSION_ISERVERPLUGINCALLBACKS, g_CSSRPGPlugin);
 
-//---------------------------------------------------------------------------------
-// Purpose: constructor/destructor
-//---------------------------------------------------------------------------------
+#ifndef CSSRPG_SOURCEMM /* !CSSRPG_SOURCEMM */
+/* The plugin is a static singleton that is exported as an interface */
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CPluginCSSRPG, IServerPluginCallbacks, INTERFACEVERSION_ISERVERPLUGINCALLBACKS, g_CSSRPGPlugin);
+#endif
+
+/**
+ * @brief Default constructor.
+ */
 CPluginCSSRPG::CPluginCSSRPG() {
 	m_iClientCommandIndex = 0;
 	is_shutdown = 1;
 }
 
+/**
+ * @brief Destructor.
+ */
 CPluginCSSRPG::~CPluginCSSRPG() {
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when the plugin is loaded, load the interface we need from the engine
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when the plugin is loaded, load the interface we need from the engine.
+ */
 bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn gameServerFactory) {
-	playerinfomanager = (IPlayerInfoManager*)gameServerFactory(INTERFACEVERSION_PLAYERINFOMANAGER, NULL);
-	if(!playerinfomanager)
+	s_playerinfomanager = (IPlayerInfoManager*)gameServerFactory(INTERFACEVERSION_PLAYERINFOMANAGER, NULL);
+	if(!s_playerinfomanager)
 		CRPG::ConsoleMsg("Unable to load playerinfomanager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	modelinfo = (IVModelInfo*)interfaceFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
-	if(!modelinfo)
+	s_modelinfo = (IVModelInfo*)interfaceFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
+	if(!s_modelinfo)
 		CRPG::ConsoleMsg("Unable to load modelinfo, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	effects = (IEffects*)gameServerFactory(IEFFECTS_INTERFACE_VERSION,NULL);
-	if(!effects)
+	s_effects = (IEffects*)gameServerFactory(IEFFECTS_INTERFACE_VERSION,NULL);
+	if(!s_effects)
 		CRPG::ConsoleMsg("Unable to load effects engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	esounds = (IEngineSound*)interfaceFactory(IENGINESOUND_SERVER_INTERFACE_VERSION, NULL); 
-    if(!esounds)
+	s_esounds = (IEngineSound*)interfaceFactory(IENGINESOUND_SERVER_INTERFACE_VERSION, NULL); 
+    if(!s_esounds)
 		CRPG::ConsoleMsg("Unable to load sounds engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	partition = (ISpatialPartition*)interfaceFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
-    if(!partition)
+	s_partition = (ISpatialPartition*)interfaceFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
+    if(!s_partition)
 		CRPG::ConsoleMsg("Unable to load partition engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	g_pVoiceServer = (IVoiceServer*)interfaceFactory(INTERFACEVERSION_VOICESERVER, NULL);
-    if(!g_pVoiceServer)
+	s_voiceserver = (IVoiceServer*)interfaceFactory(INTERFACEVERSION_VOICESERVER, NULL);
+    if(!s_voiceserver)
 		CRPG::ConsoleMsg("Unable to load VoiceServer engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	engineCache = (IVEngineCache*)interfaceFactory(VENGINE_CACHE_INTERFACE_VERSION, NULL);
-    if(!engineCache)
+	s_dataCache = (IDataCache*)interfaceFactory(DATACACHE_INTERFACE_VERSION_1, NULL);
+    if(!s_dataCache)
 		CRPG::ConsoleMsg("Unable to load Engine Cache, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	staticpropmgr = (IStaticPropMgrServer*)interfaceFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
-    if(!staticpropmgr)
+	s_staticpropmgr = (IStaticPropMgrServer*)interfaceFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
+    if(!s_staticpropmgr)
 		CRPG::ConsoleMsg("Unable to load Static Prob Manager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
 
-	randomStr = (IUniformRandomStream*)interfaceFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL);
-	if(!randomStr)
-		CRPG::ConsoleMsg("Unable to load random number engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
-
-	soundemitterbase = (ISoundEmitterSystemBase*)interfaceFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
-	if(!soundemitterbase)
+	s_soundemitterbase = (ISoundEmitterSystemBase*)interfaceFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
+	if(!s_soundemitterbase)
 		CRPG::ConsoleMsg("Unable to load sound emitter engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
-	cvar = (ICvar*)interfaceFactory(VENGINE_CVAR_INTERFACE_VERSION, NULL);
-	if(!cvar)
+	s_cvar = (ICvar*)interfaceFactory(VENGINE_CVAR_INTERFACE_VERSION, NULL);
+	if(!s_cvar)
 		CRPG::ConsoleMsg("Unable to load cvar engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
-	botmanager = (IBotManager*)gameServerFactory(INTERFACEVERSION_PLAYERBOTMANAGER, NULL);
-	if(!botmanager)
+	s_botmanager = (IBotManager*)gameServerFactory(INTERFACEVERSION_PLAYERBOTMANAGER, NULL);
+	if(!s_botmanager)
 		CRPG::ConsoleMsg("Unable to load botcontroller, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
 
-	networkstringtable = (INetworkStringTableContainer*)interfaceFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
-	if(!networkstringtable)
+	s_networkstringtable = (INetworkStringTableContainer*)interfaceFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
+	if(!s_networkstringtable)
 		CRPG::ConsoleMsg("Unable to load Network String Table, ignoring", MTYPE_WARNING);
 
-	// get the interfaces we want to use
-	if(!(engine = (IVEngineServer*)interfaceFactory(INTERFACEVERSION_VENGINESERVER, NULL)) ||
-		!(gameeventmanager = (IGameEventManager2*)interfaceFactory(INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL)) || /* 2 */
-		!(filesystem = (IFileSystem*)interfaceFactory(FILESYSTEM_INTERFACE_VERSION, NULL)) ||
-		!(helpers = (IServerPluginHelpers*)interfaceFactory(INTERFACEVERSION_ISERVERPLUGINHELPERS, NULL)) || 
-		!(enginetrace = (IEngineTrace*)interfaceFactory(INTERFACEVERSION_ENGINETRACE_SERVER, NULL)) ||
-		!(randomStr = (IUniformRandomStream*)interfaceFactory(VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL)) ||
-		!(gamedll = (IServerGameDLL*)gameServerFactory("ServerGameDLL004", NULL))) {
+	/* These are need to be defined for the File Variable Manager */
+	if(!(s_engine = (IVEngineServer*)interfaceFactory(INTERFACEVERSION_VENGINESERVER, NULL)) ||
+		!(s_filesystem = (IFileSystem*)interfaceFactory(FILESYSTEM_INTERFACE_VERSION, NULL))) {
 			CRPG::ConsoleMsg("Failed to load a game interface", MTYPE_ERROR);
 			return false; // we require all these interface to function
 	}
 
-	if(playerinfomanager) {
-		gpGlobals = playerinfomanager->GetGlobalVars();
+	/* Load all file variables */
+	CRPG_FileVar::LoadFVars();
+
+	if(!(s_gameeventmanager = (IGameEventManager2*)interfaceFactory(GameEventsManager_Version.String(), NULL)) ||
+		!(s_helpers = (IServerPluginHelpers*)interfaceFactory(IServerPluginHelpers_Version.String(), NULL)) || 
+		!(s_enginetrace = (IEngineTrace*)interfaceFactory(EngineTraceServer_Version.String(), NULL)) ||
+		!(s_randomStr = (IUniformRandomStream*)interfaceFactory(VEngineRandom_Version.String(), NULL)) ||
+		!(s_gamedll = (IServerGameDLL*)gameServerFactory(ServerGameDLL_Version.String(), NULL))) {
+			CRPG::ConsoleMsg("Failed to load a game interface", MTYPE_ERROR);
+			return false; // we require all these interface to function
+	}
+
+	if(s_playerinfomanager) {
+		s_globals = s_playerinfomanager->GetGlobalVars();
 	}
 
 	/* Initiate our data */
@@ -292,11 +272,11 @@ bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
 	return true;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when the plugin is unloaded (turned off)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when the plugin is unloaded (turned off).
+ */
 void CPluginCSSRPG::Unload(void) {
-	gameeventmanager->RemoveListener(this); // make sure we are unloaded from the event system
+	s_gameeventmanager->RemoveListener(this); // make sure we are unloaded from the event system
 
 	/* Destructor */
 	CRPG::DebugMsg("Shutting down plugin...");
@@ -309,101 +289,102 @@ void CPluginCSSRPG::Unload(void) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when the plugin is paused (i.e should stop running but isn't unloaded)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when the plugin is paused (i.e should stop running but isn't unloaded).
+ */
 void CPluginCSSRPG::Pause(void) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when the plugin is unpaused (i.e should start executing again)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when the plugin is unpaused (i.e should start executing again).
+ */
 void CPluginCSSRPG::UnPause(void) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: the name of this plugin, returned in "plugin_print" command
-//---------------------------------------------------------------------------------
+/**
+ * @brief The name of this plugin, returned in "plugin_print" command.
+ */
 char desc[256];
 const char *CPluginCSSRPG::GetPluginDescription(void) {
 	sprintf(desc, "CSSRPG v%s", CSSRPG_VERSION);
 	return desc;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called on level start
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called on level start.
+ */
 void CPluginCSSRPG::LevelInit(char const *pMapName) {
-	gameeventmanager->AddListener(this, "player_footstep", true);
-	gameeventmanager->AddListener(this, "player_hurt", true);
-	gameeventmanager->AddListener(this, "player_jump", true);
-	gameeventmanager->AddListener(this, "item_pickup", true);
-	gameeventmanager->AddListener(this, "hegrenade_detonate", true);
-	gameeventmanager->AddListener(this, "flashbang_detonate", true);
-	gameeventmanager->AddListener(this, "smokegrenade_detonate", true);
-	gameeventmanager->AddListener(this, "player_spawn", true);
-	gameeventmanager->AddListener(this, "player_death", true);
-	gameeventmanager->AddListener(this, "player_say", true);
-	gameeventmanager->AddListener(this, "round_start", true);
-	gameeventmanager->AddListener(this, "round_end", true);
-	gameeventmanager->AddListener(this, "bomb_planted", true);
-	gameeventmanager->AddListener(this, "bomb_defused", true);
-	gameeventmanager->AddListener(this, "bomb_exploded", true);
-	gameeventmanager->AddListener(this, "hostage_rescued", true);
-	gameeventmanager->AddListener(this, "vip_escaped", true);
-	gameeventmanager->AddListener(this, "player_team", true);
+	s_gameeventmanager->AddListener(this, "player_footstep", true);
+	s_gameeventmanager->AddListener(this, "player_hurt", true);
+	s_gameeventmanager->AddListener(this, "player_jump", true);
+	s_gameeventmanager->AddListener(this, "item_pickup", true);
+	s_gameeventmanager->AddListener(this, "hegrenade_detonate", true);
+	s_gameeventmanager->AddListener(this, "flashbang_detonate", true);
+	s_gameeventmanager->AddListener(this, "smokegrenade_detonate", true);
+	s_gameeventmanager->AddListener(this, "player_spawn", true);
+	s_gameeventmanager->AddListener(this, "player_death", true);
+	s_gameeventmanager->AddListener(this, "player_say", true);
+	s_gameeventmanager->AddListener(this, "round_start", true);
+	s_gameeventmanager->AddListener(this, "round_end", true);
+	s_gameeventmanager->AddListener(this, "bomb_planted", true);
+	s_gameeventmanager->AddListener(this, "bomb_defused", true);
+	s_gameeventmanager->AddListener(this, "bomb_exploded", true);
+	s_gameeventmanager->AddListener(this, "hostage_rescued", true);
+	s_gameeventmanager->AddListener(this, "vip_escaped", true);
+	s_gameeventmanager->AddListener(this, "player_team", true);
 
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called on level start, when the server is ready to accept client connections
-//		edictCount is the number of entities in the level, clientMax is the max client count
-//---------------------------------------------------------------------------------
+/**
+ * @brief called on level start, when the server is ready to accept client
+ *        connections edictCount is the number of entities in the level, 
+ *        clientMax is the max client count.
+ */
 void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clientMax) {
-	if(!esounds->IsSoundPrecached("buttons/button14.wav")) {
-		esounds->PrecacheSound("buttons/button14.wav", true);
+	if(!s_esounds->IsSoundPrecached("buttons/button14.wav")) {
+		s_esounds->PrecacheSound("buttons/button14.wav", true);
 	}
-	if(!esounds->IsSoundPrecached("buttons/blip2.wav")) {
-		esounds->PrecacheSound("buttons/blip2.wav", true);
-	}
-
-	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet1.wav")) {
-		esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
-	}
-	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet2.wav")) {
-		esounds->PrecacheSound("physics/glass/glass_impact_bullet2.wav", true);
-	}
-	if(!esounds->IsSoundPrecached("physics/glass/glass_impact_bullet3.wav")) {
-		esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
+	if(!s_esounds->IsSoundPrecached("buttons/blip2.wav")) {
+		s_esounds->PrecacheSound("buttons/blip2.wav", true);
 	}
 
-	if(!esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard1.wav")) {
-		esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
+	if(!s_esounds->IsSoundPrecached("physics/glass/glass_impact_bullet1.wav")) {
+		s_esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
 	}
-	if(!esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard2.wav")) {
-		esounds->PrecacheSound("physics/glass/glass_impact_bullet2.wav", true);
+	if(!s_esounds->IsSoundPrecached("physics/glass/glass_impact_bullet2.wav")) {
+		s_esounds->PrecacheSound("physics/glass/glass_impact_bullet2.wav", true);
 	}
-	if(!esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard3.wav")) {
-		esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
-	}
-
-	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet1.wav")) {
-		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet1.wav", true);
-	}
-	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet2.wav")) {
-		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet2.wav", true);
-	}
-	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet3.wav")) {
-		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet3.wav", true);
-	}
-	if(!esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet4.wav")) {
-		esounds->PrecacheSound("physics/surfaces/tile_impact_bullet4.wav", true);
+	if(!s_esounds->IsSoundPrecached("physics/glass/glass_impact_bullet3.wav")) {
+		s_esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
 	}
 
-	esounds->PrecacheSound("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav", true);
+	if(!s_esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard1.wav")) {
+		s_esounds->PrecacheSound("physics/glass/glass_impact_bullet1.wav", true);
+	}
+	if(!s_esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard2.wav")) {
+		s_esounds->PrecacheSound("physics/glass/glass_impact_bullet2.wav", true);
+	}
+	if(!s_esounds->IsSoundPrecached("physics/glass/glass_sheet_impact_hard3.wav")) {
+		s_esounds->PrecacheSound("physics/glass/glass_impact_bullet3.wav", true);
+	}
+
+	if(!s_esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet1.wav")) {
+		s_esounds->PrecacheSound("physics/surfaces/tile_impact_bullet1.wav", true);
+	}
+	if(!s_esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet2.wav")) {
+		s_esounds->PrecacheSound("physics/surfaces/tile_impact_bullet2.wav", true);
+	}
+	if(!s_esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet3.wav")) {
+		s_esounds->PrecacheSound("physics/surfaces/tile_impact_bullet3.wav", true);
+	}
+	if(!s_esounds->IsSoundPrecached("physics/surfaces/tile_impact_bullet4.wav")) {
+		s_esounds->PrecacheSound("physics/surfaces/tile_impact_bullet4.wav", true);
+	}
+
+	s_esounds->PrecacheSound("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav", true);
 
 	CRPG_Utils::Init();
 	CRPG_TextDB::Init();
@@ -416,6 +397,8 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	init_lsym_funcs();
 	#endif
 
+	CRPG_ExternProps::Init(s_gamedll);
+
 	CRPGI::Init();
 	CRPG::DatabaseMaid();
 	is_shutdown = 0;
@@ -424,9 +407,10 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called once per server frame, do recurring work here (like checking for timeouts)
-//---------------------------------------------------------------------------------
+/**
+ * @brief called once per server frame, do recurring work here (like checking
+ *        for timeouts)
+ */
 void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPG_Timer::RunEvents();
 	CRPG_Player::AutoSave();
@@ -434,15 +418,16 @@ void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPGI_IceStab::GameFrame();
 	CRPGI_FPistol::GameFrame();
 	CRPGI_Denial::NextFrame();
+	CRPGI_Impulse::GameFrame();
 
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called on level end (as the server is shutting down or going to a new map)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called on level end (as the server is shutting down or going to a new map).
+ */
 void CPluginCSSRPG::LevelShutdown(void) { // !!!!this can get called multiple times per map change
-	gameeventmanager->RemoveListener(this);
+	s_gameeventmanager->RemoveListener(this);
 
 	if(!is_shutdown) {
 		CRPG_Player::SaveAll();
@@ -456,9 +441,9 @@ void CPluginCSSRPG::LevelShutdown(void) { // !!!!this can get called multiple ti
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when a client spawns into a server (i.e as they begin to play)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when a client spawns into a server (i.e as they begin to play).
+ */
 void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	int index = CRPG::EdicttoIndex(pEntity);
 	CRPG_Player *player;
@@ -479,9 +464,9 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when a client leaves a server (or is timed out)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when a client leaves a server (or is timed out).
+ */
 void CPluginCSSRPG::ClientDisconnect(edict_t *pEntity) {
 	CRPG_Player *player;
 	CRPG_Menu *menu;
@@ -504,38 +489,39 @@ void CPluginCSSRPG::ClientDisconnect(edict_t *pEntity) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: Client is connected and should be put in the game
-//---------------------------------------------------------------------------------
+/**
+ * @brief Client is connected and should be put in the game.
+ */
 void CPluginCSSRPG::ClientPutInServer(edict_t *pEntity, char const *playername) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called on level start
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called on level start.
+ */
 void CPluginCSSRPG::SetCommandClient(int index) {
 	m_iClientCommandIndex = index;
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called on level start
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called on level start.
+ */
 void CPluginCSSRPG::ClientSettingsChanged(edict_t *pEdict) {
 	return ;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when a client joins a server
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when a client joins a server.
+ */
 PLUGIN_RESULT CPluginCSSRPG::ClientConnect(bool *bAllowConnect, edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen) {
 	return PLUGIN_CONTINUE;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when a client types in a command (only a subset of commands however, not CON_COMMAND's)
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when a client types in a command (only a subset of commands
+ *        however, not CON_COMMAND's).
+ */
 PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 	static char rpgstr[] = "rpg";
 	char *pcmd;
@@ -549,14 +535,14 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 	if(!pEntity || pEntity->IsFree())
 		return PLUGIN_CONTINUE;
 
-	pcmd = engine->Cmd_Argv(0);
+	pcmd = s_engine->Cmd_Argv(0);
 	if(!strcmp(pcmd, "menuselect")) {
 		menu = EdicttoRPGMenu(pEntity);
 		if(menu == NULL) {
 			/* menuselect probably for a different plugin */
 			return PLUGIN_CONTINUE;
 		}
-		menu->SelectOption(atoi(engine->Cmd_Argv(1)));
+		menu->SelectOption(atoi(s_engine->Cmd_Argv(1)));
 		return PLUGIN_STOP;
 	}
 	else if(!strcmp(pcmd, "rpgmenu")) {
@@ -597,14 +583,14 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 		if(type == none) {
 			CRPG_Player *player;
 
-			if(engine->Cmd_Argc() < 2) {
+			if(s_engine->Cmd_Argc() < 2) {
 				player = EdicttoRPGPlayer(pEntity);
 				WARN_IF(player == NULL, return PLUGIN_STOP)
 
 				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
 			}
 			else {
-				player = IndextoRPGPlayer(CRPG::FindPlayer(engine->Cmd_Argv(1)));
+				player = IndextoRPGPlayer(CRPG::FindPlayer(s_engine->Cmd_Argv(1)));
 				if(player == NULL) /* don't warn */
 					return PLUGIN_STOP;
 
@@ -630,16 +616,16 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 	return PLUGIN_CONTINUE;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when a client is authenticated
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when a client is authenticated.
+ */
 PLUGIN_RESULT CPluginCSSRPG::NetworkIDValidated(const char *pszUserName, const char *pszNetworkID) {
 	return PLUGIN_CONTINUE;
 }
 
-//---------------------------------------------------------------------------------
-// Purpose: called when an event is fired
-//---------------------------------------------------------------------------------
+/**
+ * @brief Called when an event is fired.
+ */
 void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	const char *name = event->GetName();
 	const unsigned int name_len = strlen(name);
@@ -666,8 +652,10 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 			CRPGI_FNade::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
 		else if(CRPG::istrcmp((char*)weapon, "knife"))
 			CRPGI_IceStab::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
-		else
+		else {
 			CRPGI_FPistol::PlayerDamage(attacker, victim, (char*)weapon);
+			CRPGI_Impulse::PlayerDamage(attacker, victim, (char*)weapon);
+		}
 	}
 	else if(!strcmp(name, "player_jump")) {
 		CRPGI_LJump::PlayerJump(event->GetInt("userid"));

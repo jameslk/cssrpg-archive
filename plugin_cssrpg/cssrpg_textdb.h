@@ -24,7 +24,7 @@
 #define TEXTDB_PATH "/cfg/cssrpg/languages/"
 #endif
 
-#define TXTDB_KEY_COUNT 50 /* REMEMBER TO UPDATE THIS AS MORE KEYS ARE ADDED!!! */
+#define TXTDB_KEY_COUNT 51 /* REMEMBER TO UPDATE THIS AS MORE KEYS ARE ADDED!!! */
 
 typedef struct {
 	char *s;
@@ -50,6 +50,7 @@ typedef struct {
 		txtkey_t icestab;
 		txtkey_t fpistol;
 		txtkey_t denial;
+		txtkey_t impulse;
 	} items;
 
 	struct {
@@ -126,7 +127,7 @@ typedef struct {
 } txt_keys;
 
 #include "cssrpg_misc.h"
-class CRPG_TextDB: public CRPG_LinkedList<CRPG_TextDB> {
+class CRPG_TextDB: public CRPG_StaticLinkedList<CRPG_TextDB> {
 	/* Private Functions */
 	void init_keyarray();
 
@@ -143,27 +144,11 @@ public:
 	txt_keys txt;
 
 	/* Public Functions */
-	CRPG_TextDB(void) {
-		file = NULL;
-		name = NULL;
-		hidden = 0;
+	CRPG_TextDB(void): file(NULL), name(NULL), hidden(0) {
 		init_keyarray();
 	}
 
-	~CRPG_TextDB(void) {
-		unsigned int i = TXTDB_KEY_COUNT;
-
-		if(file != NULL)
-			free(file);
-
-		if(name != NULL)
-			free(name);
-
-		while(i--) {
-			if(txt.key_array[i] != NULL)
-				free(txt.key_array[i]->s);
-		}
-	}
+	~CRPG_TextDB(void);
 
 	static void Init(void);
 	static void ShutDown(void);
