@@ -22,23 +22,19 @@
 #define ICESTAB_DMG_MIN 50 /* Secondary knife attack is 50+ damage */
 #define ICESTAB_CLRFADE 1 /* Blue color fade amount for each frame */
 
-/* Sensitivity for players who are frozen */
-#define ICESTAB_SENSITIVITY 0.7
-
 #include "../cssrpg_misc.h"
-class CRPGI_IceStab: public CRPG_LinkedList<CRPGI_IceStab> {
+class CRPGI_IceStab: public CRPG_StaticLinkedList<CRPGI_IceStab> {
 	/* Private Variables */
 	int v_index;
 	float duration;
-	float scheck_time;
 	int fade;
 
 public:
 	/* Public Functions */
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 
 	static void GameFrame(void);
 	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor);

@@ -15,16 +15,47 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef RPGI_DAMAGE_H
-#define RPGI_DAMAGE_H
+#ifndef RPGI_IMPULSE_H
+#define RPGI_IMPULSE_H
 
-/* This class accounts for both OutDamage+ and InDamage- */
-class CRPGI_Damage {
+/**
+ * @brief Speed increase for each level when player is damaged.
+ */
+#define IMPULSE_INC 0.2
+
+/**
+ * @brief Duration of Impulse's effect.
+ */
+#define IMPULSE_DURATION 0.8
+
+/**
+ * @brief Impulse Upgrade
+ */
+class CRPGI_Impulse: public CRPG_StaticLinkedList<CRPGI_Impulse> {
+	/* Private Variables */
+	float end_tm;
+	int v_index; //victim's index
+	
+	static int *inv_entindex; //array of invisible entities
+
+	/* Private Functions */
+	CBaseEntity* new_inv_entity(const class Vector &origin);
+
+	/* Friend Classes */
+	friend class CRPGI_FPistol;
+
 public:
+	/* Public Functions */
+	CRPGI_Impulse(): end_tm(0), v_index(0) {}
+
 	static void Init(void);
 	static void ShutDown(void);
 	static bool BuyItem(class CRPG_Player *player);
 	static bool SellItem(class CRPG_Player *player);
+
+	static void RoundStart(void);
+	static void GameFrame(void);
+	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, char *weapon);
 };
 
 #endif

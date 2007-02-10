@@ -19,9 +19,9 @@
 #define CSSRPG_H
 
 #ifdef WIN32
-#define CSSRPG_VERSION "1.0.5w"
+#define CSSRPG_VERSION "1.0.5 Windows"
 #else
-#define CSSRPG_VERSION "1.0.5l"
+#define CSSRPG_VERSION "1.0.5 Linux"
 #endif
 
 #define CSSRPG_DB "cssrpg.db"
@@ -39,10 +39,11 @@
 #define ITEM_FNADE		6
 #define ITEM_ICESTAB	7
 #define ITEM_FPISTOL	8
-#define ITEM_DENIAL		9
-#define ITEM_IMPULSE	10
+#define ITEM_IMPULSE	9
+#define ITEM_DENIAL		10
+#define ITEM_MEDIC		11
 
-#define ITEM_COUNT		11 /* Last item+1 */
+#define ITEM_COUNT		12 /* Last item+1 */
 
 struct item_type {
 	char name[16];
@@ -50,15 +51,15 @@ struct item_type {
 
 	unsigned int index;
 
-	char enable;
+	bool enable;
 	unsigned int maxlevel;
 	unsigned int maxlevelbarrier; /* The enforced maximum level */
 
 	unsigned int start_cost;
 	unsigned int inc_cost;
 
-	void (*buy_item)(void *ptr);
-	void (*sell_item)(void *ptr);
+	bool (*buy_item)(class CRPG_Player *player);
+	bool (*sell_item)(class CRPG_Player *player);
 };
 
 #include "cssrpg_console.h"
@@ -152,11 +153,11 @@ public:
 
 	struct {
 		cssteam_t team;
-		char isdead;
+		bool isdead;
 	} css;
 
 	CRPG_TextDB *lang; /* Language for this player */
-	char lang_is_set; /* Whether or not ths user has set his/her langauge */
+	bool lang_is_set; /* Whether or not ths user has set his/her langauge */
 
 	/* Public Functions */
 	CRPG_Player(): level(1), exp(0), credits(0), lang(NULL), lang_is_set(0) {
@@ -185,7 +186,7 @@ public:
 	unsigned int DelPlayer(void);
 
 	void InsertPlayer(void);
-	void LoadData(char init = 0);
+	void LoadData(bool init = 0);
 	void SaveData(void);
 
 	void AddLevel(unsigned int level) {
@@ -201,10 +202,18 @@ public:
 	unsigned int TakeItem(unsigned int item_index);
 	unsigned int BuyItem(unsigned int item_index);
 	unsigned int SellItem(unsigned int item_index);
+
+	static void ProcessKeys(void);
 };
 
-CRPG_Player* IndextoRPGPlayer(int index);
-CRPG_Player* EdicttoRPGPlayer(edict_t *e);
+inline CRPG_Player* IndextoRPGPlayer(int index) {
+	return CRPG_Player::IndextoHandle(index);
+}
+
+inline CRPG_Player* EdicttoRPGPlayer(edict_t *e) {
+	return CRPG_Player::EdicttoHandle(e);
+}
+
 CRPG_Player* UserIDtoRPGPlayer(int userid);
 CRPG_Player* SteamIDtoRPGPlayer(const char *steamid);
 CRPG_Player* NametoRPGPlayer(const char *name);

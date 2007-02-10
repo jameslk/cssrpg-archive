@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -61,22 +60,20 @@ void CRPGI_Stealth::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_Stealth::BuyItem(void *ptr) {
-	CRPG_Player *player = (CRPG_Player*)ptr;
+bool CRPGI_Stealth::BuyItem(CRPG_Player *player) {
+	#pragma message("NOTICE: Offset")
+	CBaseEntity_SetRenderMode(player->cbp(), kRenderTransColor);
+	CBaseEntity_SetRenderColorA(player->cbp(), 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 
-	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
-
-	return ;
+	return true;
 }
 
-void CRPGI_Stealth::SellItem(void *ptr) {
-	CRPG_Player *player = (CRPG_Player*)ptr;
+bool CRPGI_Stealth::SellItem(CRPG_Player *player) {
+	#pragma message("NOTICE: Offset")
+	CBaseEntity_SetRenderMode(player->cbp(), kRenderTransColor);
+	CBaseEntity_SetRenderColorA(player->cbp(), 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 
-	player->cbp()->SetRenderMode(kRenderTransColor);
-	player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
-
-	return ;
+	return true;
 }
 
 /* This must be called in bulk for each player */
@@ -91,8 +88,9 @@ void CRPGI_Stealth::SetVisibilities(void) {
 		player = CRPG_Player::players[i];
 		if(player != NULL) {
 			IF_BOT_ENABLED(player) {
-				player->cbp()->SetRenderMode(kRenderTransColor);
-				player->cbp()->SetRenderColorA(255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
+				#pragma message("NOTICE: Offset")
+				CBaseEntity_SetRenderMode(player->cbp(), kRenderTransColor);
+				CBaseEntity_SetRenderColorA(player->cbp(), 255-(player->items[ITEM_STEALTH].level*STEALTH_INC));
 			}
 		}
 	}

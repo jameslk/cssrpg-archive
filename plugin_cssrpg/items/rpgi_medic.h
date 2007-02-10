@@ -15,16 +15,38 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef RPGI_DAMAGE_H
-#define RPGI_DAMAGE_H
+#ifndef RPGI_MEDIC_H
+#define RPGI_MEDIC_H
 
-/* This class accounts for both OutDamage+ and InDamage- */
-class CRPGI_Damage {
+/**
+ * @brief Heal increment for each level.
+ */
+#define MEDIC_INC 5
+
+/**
+ * @brief Delay between each heal.
+ */
+#define MEDIC_DELAY 2.0
+
+/**
+ * @brief Medic healing radius.
+ */
+#define MEDIC_RADIUS 250.0
+
+#include "../cssrpg_misc.h"
+class CRPGI_Medic {
+	/* Private Variables */
+	static CRPG_Timer *medic_timer;
+	static class Vector *vec_array;
+
 public:
+	/* Public Functions */
 	static void Init(void);
 	static void ShutDown(void);
 	static bool BuyItem(class CRPG_Player *player);
 	static bool SellItem(class CRPG_Player *player);
+
+	static void MedicTimer(void *argv[], int argc);
 };
 
 #endif

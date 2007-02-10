@@ -31,7 +31,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 
 #include "SoundEmitterSystem/isoundemittersystembase.h"
@@ -97,6 +96,7 @@
 #include "datacache/idatacacheV1.h"
 
 #include "icvar.h"
+#include "icliententitylist.h"
 
 #include "cssrpg.h"
 #include "cssrpg_interface.h"
@@ -118,6 +118,7 @@
 #include "items/rpgi_denial.h"
 #include "items/rpgi_fpistol.h"
 #include "items/rpgi_impulse.h"
+#include "items/rpgi_medic.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -126,6 +127,11 @@
 void InitCVars(CreateInterfaceFn cvarFactory);
 void Bot_RunAll(void);
 
+/**
+ * @brief Engine and Game Interface Variables
+ *
+ * @{
+ */
 IVEngineServer *s_engine = NULL;
 IFileSystem *s_filesystem = NULL;
 IGameEventManager2 *s_gameeventmanager = NULL;
@@ -133,8 +139,10 @@ IPlayerInfoManager *s_playerinfomanager = NULL;
 IBotManager *s_botmanager = NULL;
 IServerPluginHelpers *s_helpers = NULL;
 IUniformRandomStream *s_randomStr = NULL;
+IServerGameClients *s_serverclients;
 IEngineTrace *s_enginetrace = NULL;
 IServerGameDLL *s_gamedll = NULL;
+IServerGameEnts *s_gameents = NULL;
 
 IVoiceServer *s_voiceserver = NULL;
 ICvar *s_cvar = NULL;
@@ -147,30 +155,91 @@ IDataCache *s_dataCache = NULL;
 IEffects *s_effects = NULL; // fx	
 IEngineSound *s_esounds = NULL; // sound 
 ISoundEmitterSystemBase *s_soundemitterbase = NULL;
+IClientEntityList *s_entitylist; //CBaseEntityList
+
+#ifdef CSSRPG_SOURCEMM
+SourceHook::CallClass<IVEngineServer> *s_Engine_CC;
+#endif
 
 CGlobalVars *s_globals = NULL;
+/** @} */
 
-/**
- * @brief File variables needed here.
+int beamring_sprite;
+int redtrail_sprite;
+
+/*
+ * Declare the hooks we will be using in this file.  Hooking will not compile
+ * without these. The macro naming scheme is SH_DECL_HOOKn[_void].
+ * If you have 5 parameters, it would be HOOK5. If the function is void, add _void.
+ * It stands for "SourceHook, Declare Hook".
  *
  * @{
  */
-CRPG_FileVar ServerGameDLL_Version("ServerGameDLL_Version", "ServerGameDLL006", "interface_versions/ServerGameDLL");
-CRPG_FileVar VEngineRandom_Version("VEngineRandom_Version", "VEngineRandom001", "interface_versions/VEngineRandom");
-CRPG_FileVar EngineTraceServer_Version("EngineTraceServer_Version", "EngineTraceServer003", "interface_versions/EngineTraceServer");
-CRPG_FileVar IServerPluginHelpers_Version("IServerPluginHelpers_Version", "ISERVERPLUGINHELPERS001", "interface_versions/IServerPluginHelpers");
-CRPG_FileVar GameEventsManager_Version("GameEventsManager_version", "GAMEEVENTSMANAGER002", "interface_versions/GameEventsManager");
+#ifdef CSSRPG_SOURCEMM
+SH_DECL_HOOK6(IServerGameDLL, LevelInit, SH_NOATTRIB, 0, bool, char const *, char const *, char const *, char const *, bool, bool);
+SH_DECL_HOOK3_void(IServerGameDLL, ServerActivate, SH_NOATTRIB, 0, edict_t *, int, int);
+SH_DECL_HOOK1_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool);
+SH_DECL_HOOK0_void(IServerGameDLL, LevelShutdown, SH_NOATTRIB, 0);
+SH_DECL_HOOK2_void(IServerGameClients, ClientActive, SH_NOATTRIB, 0, edict_t *, bool);
+SH_DECL_HOOK1_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, edict_t *);
+SH_DECL_HOOK2_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, edict_t *, char const *);
+SH_DECL_HOOK1_void(IServerGameClients, SetCommandClient, SH_NOATTRIB, 0, int);
+SH_DECL_HOOK1_void(IServerGameClients, ClientSettingsChanged, SH_NOATTRIB, 0, edict_t *);
+SH_DECL_HOOK5(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool, edict_t *, const char*, const char *, char *, int);
+SH_DECL_HOOK1_void(IServerGameClients, ClientCommand, SH_NOATTRIB, 0, edict_t *);
+//SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent *, bool);
+#endif
 /** @} */
 
 /*	//////////////////////////////////////
-	CPluginCSSRPG Class 
+	CPluginCSSRPG Interface Class 
 	////////////////////////////////////// */
 CPluginCSSRPG g_CSSRPGPlugin;
 
-#ifndef CSSRPG_SOURCEMM /* !CSSRPG_SOURCEMM */
-/* The plugin is a static singleton that is exported as an interface */
+/* Expose plugin interface */
+#ifdef CSSRPG_SOURCEMM
+PLUGIN_EXPOSE(CPluginCSSRPG, g_CSSRPGPlugin);
+#else
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CPluginCSSRPG, IServerPluginCallbacks, INTERFACEVERSION_ISERVERPLUGINCALLBACKS, g_CSSRPGPlugin);
 #endif
+
+void* CPluginCSSRPG::InterfaceSearch(CreateInterfaceFn factory, char *name) {
+	char *iface_str, *buf;
+	unsigned int len, check, i;
+	void *iface;
+
+	WARN_IF(name == NULL, return NULL);
+
+	/* First test if this already a valid interface name */
+	iface = factory(name, NULL);
+	if(iface != NULL)
+		return iface;
+
+	len = strlen(name);
+	iface_str = (char*)calloc(len+1, sizeof(char));
+	strcpy(iface_str, name);
+
+	if(len > 3) {
+		check = isdigit(*(iface_str+(len-3))) ? 1 : 0;
+		check &= isdigit(*(iface_str+(len-2))) ? 1 : 0;
+		check &= isdigit(*(iface_str+(len-1))) ? 1 : 0;
+		if(check)
+			iface_str[len-3] = '\0';
+	}
+
+	buf = (char*)calloc(strlen(iface_str)+8, sizeof(char));
+
+	for(i = 0;i < 1000;i++) {
+		sprintf(buf, "%s%0.3d", iface_str, i);
+		iface = factory(buf, NULL);
+		if(iface != NULL)
+			break;
+	}
+
+	free(iface_str);
+	free(buf);
+	return iface;
+}
 
 /**
  * @brief Default constructor.
@@ -187,82 +256,110 @@ CPluginCSSRPG::~CPluginCSSRPG() {
 }
 
 /**
+ * @brief The name of this plugin, returned in "plugin_print" command.
+ */
+char desc[256];
+#ifdef CSSRPG_SOURCEMM
+const char *CPluginCSSRPG::GetDescription(void) {
+	sprintf(desc, "CSSRPG v%s", CSSRPG_VERSION);
+	return desc;
+}
+#else
+const char *CPluginCSSRPG::GetPluginDescription(void) {
+	sprintf(desc, "CSSRPG v%s", CSSRPG_VERSION);
+	return desc;
+}
+#endif
+
+/**
+ * @brief Output the version number for BAILOPANTS.
+ */
+#ifdef CSSRPG_SOURCEMM
+const char *CPluginCSSRPG::GetVersion(void) {
+	return CSSRPG_VERSION;
+}
+#endif
+
+#define ASSIGN_INTERFACE(VAR, TYPE, FACTORY, NAME) \
+	VAR = (TYPE)CPluginCSSRPG::InterfaceSearch(FACTORY, NAME); \
+	if(VAR == NULL) \
+		CRPG::ConsoleMsg("Unable to find an interface for %s, ignoring", MTYPE_WARNING, #VAR);
+
+#define ASSIGN_INTERFACE_OR_DIE(VAR, TYPE, FACTORY, NAME) \
+	VAR = (TYPE)CPluginCSSRPG::InterfaceSearch(FACTORY, NAME); \
+	if(VAR == NULL) { \
+		CRPG::ConsoleMsg("Failed to load an interface for %s", MTYPE_ERROR, #VAR); \
+		return false; \
+	}
+
+/**
  * @brief Called when the plugin is loaded, load the interface we need from the engine.
  */
+#ifdef CSSRPG_SOURCEMM
+bool CPluginCSSRPG::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late) {
+	CreateInterfaceFn interfaceFactory = ismm->engineFactory(), gameServerFactory = ismm->serverFactory();
+
+	PLUGIN_SAVEVARS();
+#else
 bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn gameServerFactory) {
-	s_playerinfomanager = (IPlayerInfoManager*)gameServerFactory(INTERFACEVERSION_PLAYERINFOMANAGER, NULL);
-	if(!s_playerinfomanager)
-		CRPG::ConsoleMsg("Unable to load playerinfomanager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+#endif
 
-	s_modelinfo = (IVModelInfo*)interfaceFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL);
-	if(!s_modelinfo)
-		CRPG::ConsoleMsg("Unable to load modelinfo, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+	ASSIGN_INTERFACE_OR_DIE(s_engine, IVEngineServer*, interfaceFactory, INTERFACEVERSION_VENGINESERVER);
+	ASSIGN_INTERFACE_OR_DIE(s_filesystem, IFileSystem*, interfaceFactory, FILESYSTEM_INTERFACE_VERSION);
+	ASSIGN_INTERFACE_OR_DIE(s_playerinfomanager, IPlayerInfoManager*, gameServerFactory, INTERFACEVERSION_PLAYERINFOMANAGER);
+	ASSIGN_INTERFACE_OR_DIE(s_gameeventmanager, IGameEventManager2*, interfaceFactory, INTERFACEVERSION_GAMEEVENTSMANAGER2);
+	ASSIGN_INTERFACE_OR_DIE(s_filesystem, IFileSystem*, interfaceFactory, FILESYSTEM_INTERFACE_VERSION);
+	ASSIGN_INTERFACE_OR_DIE(s_helpers, IServerPluginHelpers*, interfaceFactory, INTERFACEVERSION_ISERVERPLUGINHELPERS);
+	ASSIGN_INTERFACE_OR_DIE(s_enginetrace, IEngineTrace*, interfaceFactory, INTERFACEVERSION_ENGINETRACE_SERVER);
+	ASSIGN_INTERFACE_OR_DIE(s_randomStr, IUniformRandomStream*, interfaceFactory, VENGINE_SERVER_RANDOM_INTERFACE_VERSION);
+	ASSIGN_INTERFACE_OR_DIE(s_gamedll, IServerGameDLL*, gameServerFactory, "ServerGameDLL006");
+	ASSIGN_INTERFACE_OR_DIE(s_serverclients, IServerGameClients*, gameServerFactory, INTERFACEVERSION_SERVERGAMECLIENTS);
+	ASSIGN_INTERFACE_OR_DIE(s_gameents, IServerGameEnts*, gameServerFactory, "ServerGameEnts001");
+	ASSIGN_INTERFACE_OR_DIE(s_effects, IEffects*, gameServerFactory, IEFFECTS_INTERFACE_VERSION);
 
-	s_effects = (IEffects*)gameServerFactory(IEFFECTS_INTERFACE_VERSION,NULL);
-	if(!s_effects)
-		CRPG::ConsoleMsg("Unable to load effects engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+	ASSIGN_INTERFACE(s_modelinfo, IVModelInfo*, interfaceFactory, VMODELINFO_SERVER_INTERFACE_VERSION);
+	ASSIGN_INTERFACE(s_esounds, IEngineSound*, interfaceFactory, IENGINESOUND_SERVER_INTERFACE_VERSION); 
+	ASSIGN_INTERFACE(s_partition, ISpatialPartition*, interfaceFactory, INTERFACEVERSION_SPATIALPARTITION);
+	ASSIGN_INTERFACE(s_voiceserver, IVoiceServer*, interfaceFactory, INTERFACEVERSION_VOICESERVER);
+	ASSIGN_INTERFACE(s_dataCache, IDataCache*, interfaceFactory, DATACACHE_INTERFACE_VERSION_1);
+	ASSIGN_INTERFACE(s_staticpropmgr, IStaticPropMgrServer*, interfaceFactory, INTERFACEVERSION_STATICPROPMGR_SERVER);
+	ASSIGN_INTERFACE(s_soundemitterbase, ISoundEmitterSystemBase*, interfaceFactory, SOUNDEMITTERSYSTEM_INTERFACE_VERSION);
+	ASSIGN_INTERFACE(s_cvar, ICvar*, interfaceFactory, VENGINE_CVAR_INTERFACE_VERSION);
+	ASSIGN_INTERFACE(s_botmanager, IBotManager*, gameServerFactory, INTERFACEVERSION_PLAYERBOTMANAGER);
+	ASSIGN_INTERFACE(s_networkstringtable, INetworkStringTableContainer*, interfaceFactory, INTERFACENAME_NETWORKSTRINGTABLESERVER);
+	//ASSIGN_INTERFACE(s_entitylist, IClientEntityList*, gameServerFactory, VCLIENTENTITYLIST_INTERFACE_VERSION);
 
-	s_esounds = (IEngineSound*)interfaceFactory(IENGINESOUND_SERVER_INTERFACE_VERSION, NULL); 
-    if(!s_esounds)
-		CRPG::ConsoleMsg("Unable to load sounds engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+#ifdef CSSRPG_SOURCEMM
+	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, LevelInit, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::LevelInit, true);
+	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, ServerActivate, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::ServerActivate, true);
+	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameFrame, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::GameFrame, true);
+	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, LevelShutdown, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::LevelShutdown, false);
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, ClientActive, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientActive, false); //false so this can get called /after/ FireGameEvent
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, ClientDisconnect, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientDisconnect, true);
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, ClientPutInServer, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientPutInServer, true);
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, SetCommandClient, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::SetCommandClient, true);
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, ClientSettingsChanged, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientSettingsChanged, true);
 
-	s_partition = (ISpatialPartition*)interfaceFactory(INTERFACEVERSION_SPATIALPARTITION, NULL);
-    if(!s_partition)
-		CRPG::ConsoleMsg("Unable to load partition engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+	/* The following functions are pre handled, because that's how they are in IServerPluginCallbacks */
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, ClientConnect, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientConnect, false);
+	SH_ADD_HOOK_MEMFUNC(IServerGameClients, ClientCommand, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientCommand, false);
 
-	s_voiceserver = (IVoiceServer*)interfaceFactory(INTERFACEVERSION_VOICESERVER, NULL);
-    if(!s_voiceserver)
-		CRPG::ConsoleMsg("Unable to load VoiceServer engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+	//SH_ADD_HOOK_MEMFUNC(IGameEventManager2, FireEvent, s_gameeventmanager, &g_CSSRPGPlugin, &CPluginCSSRPG::FireGameEvent, false); 
 
-	s_dataCache = (IDataCache*)interfaceFactory(DATACACHE_INTERFACE_VERSION_1, NULL);
-    if(!s_dataCache)
-		CRPG::ConsoleMsg("Unable to load Engine Cache, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
+	/* Get the call class for IVServerEngine so we can safely call functions
+	   without invoking their hooks (when needed). */
+	s_Engine_CC = SH_GET_CALLCLASS(s_engine);
+#endif
 
-	s_staticpropmgr = (IStaticPropMgrServer*)interfaceFactory(INTERFACEVERSION_STATICPROPMGR_SERVER,NULL);
-    if(!s_staticpropmgr)
-		CRPG::ConsoleMsg("Unable to load Static Prob Manager, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific player data
-
-	s_soundemitterbase = (ISoundEmitterSystemBase*)interfaceFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL);
-	if(!s_soundemitterbase)
-		CRPG::ConsoleMsg("Unable to load sound emitter engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
-
-	s_cvar = (ICvar*)interfaceFactory(VENGINE_CVAR_INTERFACE_VERSION, NULL);
-	if(!s_cvar)
-		CRPG::ConsoleMsg("Unable to load cvar engine, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
-
-	s_botmanager = (IBotManager*)gameServerFactory(INTERFACEVERSION_PLAYERBOTMANAGER, NULL);
-	if(!s_botmanager)
-		CRPG::ConsoleMsg("Unable to load botcontroller, ignoring", MTYPE_WARNING); // this isn't fatal, we just won't be able to access specific bot functions
-
-	s_networkstringtable = (INetworkStringTableContainer*)interfaceFactory(INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
-	if(!s_networkstringtable)
-		CRPG::ConsoleMsg("Unable to load Network String Table, ignoring", MTYPE_WARNING);
-
-	/* These are need to be defined for the File Variable Manager */
-	if(!(s_engine = (IVEngineServer*)interfaceFactory(INTERFACEVERSION_VENGINESERVER, NULL)) ||
-		!(s_filesystem = (IFileSystem*)interfaceFactory(FILESYSTEM_INTERFACE_VERSION, NULL))) {
-			CRPG::ConsoleMsg("Failed to load a game interface", MTYPE_ERROR);
-			return false; // we require all these interface to function
-	}
-
-	/* Load all file variables */
-	CRPG_FileVar::LoadFVars();
-
-	if(!(s_gameeventmanager = (IGameEventManager2*)interfaceFactory(GameEventsManager_Version.String(), NULL)) ||
-		!(s_helpers = (IServerPluginHelpers*)interfaceFactory(IServerPluginHelpers_Version.String(), NULL)) || 
-		!(s_enginetrace = (IEngineTrace*)interfaceFactory(EngineTraceServer_Version.String(), NULL)) ||
-		!(s_randomStr = (IUniformRandomStream*)interfaceFactory(VEngineRandom_Version.String(), NULL)) ||
-		!(s_gamedll = (IServerGameDLL*)gameServerFactory(ServerGameDLL_Version.String(), NULL))) {
-			CRPG::ConsoleMsg("Failed to load a game interface", MTYPE_ERROR);
-			return false; // we require all these interface to function
-	}
-
-	if(s_playerinfomanager) {
-		s_globals = s_playerinfomanager->GetGlobalVars();
-	}
+#ifdef CSSRPG_SOURCEMM
+	s_globals = g_SMAPI->pGlobals();
+#else
+	s_globals = s_playerinfomanager->GetGlobalVars();
+#endif
 
 	/* Initiate our data */
 	CRPG::DebugMsg("Initializing plugin...");
+	CRPG_FileVar::LoadFVars();
 	CRPG::Init();
 	CRPG_Timer::Init();
 	CRPG_Setting::Init();
@@ -275,10 +372,12 @@ bool CPluginCSSRPG::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
 /**
  * @brief Called when the plugin is unloaded (turned off).
  */
+#ifdef CSSRPG_SOURCEMM
+bool CPluginCSSRPG::Unload(char *error, size_t maxlen) {
+#else
 void CPluginCSSRPG::Unload(void) {
 	s_gameeventmanager->RemoveListener(this); // make sure we are unloaded from the event system
-
-	/* Destructor */
+#endif
 	CRPG::DebugMsg("Shutting down plugin...");
 	CRPG_Setting::FreeMemory();
 	CRPG_Timer::FreeMemory();
@@ -286,36 +385,81 @@ void CPluginCSSRPG::Unload(void) {
 	CRPG::DebugMsg("Shut down complete.");
 	CRPG_Utils::ShutDown();
 
+#ifdef CSSRPG_SOURCEMM
+
+	//SH_REMOVE_HOOK_MEMFUNC(IGameEventManager2, FireEvent, s_gameeventmanager, &g_CSSRPGPlugin, &CPluginCSSRPG::FireGameEvent, false); 
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, LevelInit, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::LevelInit, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, ServerActivate, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::ServerActivate, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameFrame, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::GameFrame, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, LevelShutdown, s_gamedll, &g_CSSRPGPlugin, &CPluginCSSRPG::LevelShutdown, false);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientActive, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientActive, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientDisconnect, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientDisconnect, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientPutInServer, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientPutInServer, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, SetCommandClient, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::SetCommandClient, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientSettingsChanged, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientSettingsChanged, true);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientConnect, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientConnect, false);
+	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientCommand, s_serverclients, &g_CSSRPGPlugin, &CPluginCSSRPG::ClientCommand, false);
+
+	SH_RELEASE_CALLCLASS(s_Engine_CC);
+
+	return true;
+#else
 	return ;
+#endif
 }
 
 /**
  * @brief Called when the plugin is paused (i.e should stop running but isn't unloaded).
  */
+#ifdef CSSRPG_SOURCEMM
+bool CPluginCSSRPG::Pause(char *error, size_t maxlen) {
+	return true;
+}
+#else
 void CPluginCSSRPG::Pause(void) {
 	return ;
 }
+#endif
 
 /**
  * @brief Called when the plugin is unpaused (i.e should start executing again).
  */
+#ifdef CSSRPG_SOURCEMM
+bool CPluginCSSRPG::Unpause(char *error, size_t maxlen) {
+	return true;
+}
+#else
 void CPluginCSSRPG::UnPause(void) {
 	return ;
 }
+#endif
 
 /**
- * @brief The name of this plugin, returned in "plugin_print" command.
+ * @brief 
  */
-char desc[256];
-const char *CPluginCSSRPG::GetPluginDescription(void) {
-	sprintf(desc, "CSSRPG v%s", CSSRPG_VERSION);
-	return desc;
+#ifdef CSSRPG_SOURCEMM
+void CPluginCSSRPG::AllPluginsLoaded(void) {
+	/* We don't really need this for anything other than interplugin
+	   communication and that's not used in this plugin.
+	   If we really wanted, we could override the factories so other plugins can
+	   request interfaces we make.  In this callback, the plugin could be
+	   assured that either the interfaces it requires were either loaded in
+	   another plugin or not.
+	   -- SO SAYS BAILOPANTS
+	*/
+
+	return ;
 }
+#endif
 
 /**
  * @brief Called on level start.
  */
+#ifdef CSSRPG_SOURCEMM
+bool CPluginCSSRPG::LevelInit(const char *pMapName, const char *pMapEntities, const char *pOldLevel, const char *pLandmarkName, bool loadGame, bool background) {
+#else
 void CPluginCSSRPG::LevelInit(char const *pMapName) {
+#endif
 	s_gameeventmanager->AddListener(this, "player_footstep", true);
 	s_gameeventmanager->AddListener(this, "player_hurt", true);
 	s_gameeventmanager->AddListener(this, "player_jump", true);
@@ -335,7 +479,11 @@ void CPluginCSSRPG::LevelInit(char const *pMapName) {
 	s_gameeventmanager->AddListener(this, "vip_escaped", true);
 	s_gameeventmanager->AddListener(this, "player_team", true);
 
+#ifdef CSSRPG_SOURCEMM
+	RETURN_META_VALUE(MRES_IGNORED, true);
+#else
 	return ;
+#endif
 }
 
 /**
@@ -384,7 +532,12 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 		s_esounds->PrecacheSound("physics/surfaces/tile_impact_bullet4.wav", true);
 	}
 
+	/* Don't check if these are precached, it will always return true */
+	s_esounds->PrecacheSound("weapons/physcannon/physcannon_charge.wav", true);
 	s_esounds->PrecacheSound("npc/overwatch/cityvoice/fprison_missionfailurereminder.wav", true);
+
+	beamring_sprite = s_engine->PrecacheModel("sprites/lgtning.vmt", true);
+	redtrail_sprite = s_engine->PrecacheModel("sprites/combineball_trail_red_1.vmt", true);
 
 	CRPG_Utils::Init();
 	CRPG_TextDB::Init();
@@ -398,6 +551,8 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 	#endif
 
 	CRPG_ExternProps::Init(s_gamedll);
+
+	Initialize_TE_Pointer(s_effects);
 
 	CRPGI::Init();
 	CRPG::DatabaseMaid();
@@ -414,6 +569,7 @@ void CPluginCSSRPG::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 void CPluginCSSRPG::GameFrame(bool simulating) {
 	CRPG_Timer::RunEvents();
 	CRPG_Player::AutoSave();
+	//CRPG_Player::ProcessKeys();
 	CRPGI_LJump::CheckAll();
 	CRPGI_IceStab::GameFrame();
 	CRPGI_FPistol::GameFrame();
@@ -442,14 +598,40 @@ void CPluginCSSRPG::LevelShutdown(void) { // !!!!this can get called multiple ti
 }
 
 /**
+ * @brief Called when a client joins a server.
+ */
+#ifdef CSSRPG_SOURCEMM
+bool CPluginCSSRPG::ClientConnect(edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen) {
+	return true;
+}
+#else
+PLUGIN_RESULT CPluginCSSRPG::ClientConnect(bool *bAllowConnect, edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen) {
+	return PLUGIN_CONTINUE;
+}
+#endif
+
+/**
+ * @brief Called when a client is authenticated.
+ */
+#ifndef CSSRPG_SOURCEMM /* !CSSRPG_SOURCEMM */
+PLUGIN_RESULT CPluginCSSRPG::NetworkIDValidated(const char *pszUserName, const char *pszNetworkID) {
+	return PLUGIN_CONTINUE;
+}
+#endif
+
+/**
  * @brief Called when a client spawns into a server (i.e as they begin to play).
  */
+#ifdef CSSRPG_SOURCEMM
+void CPluginCSSRPG::ClientActive(edict_t *pEntity, bool bLoadGame) {
+#else
 void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
+#endif
 	int index = CRPG::EdicttoIndex(pEntity);
 	CRPG_Player *player;
 
 	player = CRPG_Player::AddPlayer(pEntity);
-	CRPGI_HBonus::AddPlayer(pEntity);
+	CRPGI::AddPlayer(player);
 
 	if(CRPG::IsValidIndex(index)) {
 		if(!CRPG_GlobalSettings::enable)
@@ -465,34 +647,30 @@ void CPluginCSSRPG::ClientActive(edict_t *pEntity) {
 }
 
 /**
+ * @brief Client is connected and should be put in the game.
+ */
+void CPluginCSSRPG::ClientPutInServer(edict_t *pEntity, char const *playername) {
+	return ;
+}
+
+/**
  * @brief Called when a client leaves a server (or is timed out).
  */
 void CPluginCSSRPG::ClientDisconnect(edict_t *pEntity) {
 	CRPG_Player *player;
 	CRPG_Menu *menu;
-	CRPGI_HBonus *hb;
 
 	if(!is_shutdown) {
-		player = EdicttoRPGPlayer(pEntity);
-		if(player != NULL)
-			player->DelPlayer();
-
 		menu = EdicttoRPGMenu(pEntity);
 		if(menu != NULL)
 			menu->DelMenu();
 
-		hb = EdicttoHBonus(pEntity);
-		if(hb != NULL)
-			hb->DelPlayer();
+		player = EdicttoRPGPlayer(pEntity);
+		CRPGI::DelPlayer(player);
+		if(player != NULL)
+			player->DelPlayer();
 	}
 
-	return ;
-}
-
-/**
- * @brief Client is connected and should be put in the game.
- */
-void CPluginCSSRPG::ClientPutInServer(edict_t *pEntity, char const *playername) {
 	return ;
 }
 
@@ -511,18 +689,23 @@ void CPluginCSSRPG::ClientSettingsChanged(edict_t *pEdict) {
 	return ;
 }
 
-/**
- * @brief Called when a client joins a server.
- */
-PLUGIN_RESULT CPluginCSSRPG::ClientConnect(bool *bAllowConnect, edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen) {
-	return PLUGIN_CONTINUE;
-}
+#ifdef CSSRPG_SOURCEMM
+#define CMD_CONTINUE return
+#define CMD_OVERRIDE RETURN_META(MRES_SUPERCEDE)
+#else
+#define CMD_CONTINUE return PLUGIN_CONTINUE
+#define CMD_OVERRIDE return PLUGIN_STOP
+#endif
 
 /**
  * @brief Called when a client types in a command (only a subset of commands
  *        however, not CON_COMMAND's).
  */
+#ifdef CSSRPG_SOURCEMM
+void CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
+#else
 PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
+#endif
 	static char rpgstr[] = "rpg";
 	char *pcmd;
 	CRPG_Menu *menu;
@@ -530,35 +713,35 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 	int i;
 
 	if(!CRPG_GlobalSettings::enable)
-		return PLUGIN_CONTINUE;
+		CMD_CONTINUE;
 
 	if(!pEntity || pEntity->IsFree())
-		return PLUGIN_CONTINUE;
+		CMD_CONTINUE;
 
 	pcmd = s_engine->Cmd_Argv(0);
 	if(!strcmp(pcmd, "menuselect")) {
 		menu = EdicttoRPGMenu(pEntity);
 		if(menu == NULL) {
 			/* menuselect probably for a different plugin */
-			return PLUGIN_CONTINUE;
+			CMD_CONTINUE;
 		}
 		menu->SelectOption(atoi(s_engine->Cmd_Argv(1)));
-		return PLUGIN_STOP;
+		CMD_OVERRIDE;
 	}
 	else if(!strcmp(pcmd, "rpgmenu")) {
 		menu = CRPG_Menu::AddMenu(pEntity);
 		if(menu == NULL) {
 			CRPG::ConsoleMsg("menu = NULL (1)", MTYPE_ERROR);
-			return PLUGIN_STOP;
+			CMD_OVERRIDE;
 		}
 		menu->CreateMenu();
-		return PLUGIN_STOP;
+		CMD_OVERRIDE;
 	}
 	else {
 		i = 0;
 		while(pcmd) {
 			if(*pcmd++ != rpgstr[i++])
-				return PLUGIN_CONTINUE;
+				CMD_CONTINUE;
 			if(i >= 3)
 				break;
 		}
@@ -578,49 +761,42 @@ PLUGIN_RESULT CPluginCSSRPG::ClientCommand(edict_t *pEntity) {
 		else if(!strcmp(pcmd, "top10"))
 			type = top10;
 		else
-			return PLUGIN_CONTINUE;
+			CMD_CONTINUE;
 
 		if(type == none) {
 			CRPG_Player *player;
 
 			if(s_engine->Cmd_Argc() < 2) {
 				player = EdicttoRPGPlayer(pEntity);
-				WARN_IF(player == NULL, return PLUGIN_STOP)
+				WARN_IF(player == NULL, CMD_OVERRIDE)
 
 				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
 			}
 			else {
 				player = IndextoRPGPlayer(CRPG::FindPlayer(s_engine->Cmd_Argv(1)));
 				if(player == NULL) /* don't warn */
-					return PLUGIN_STOP;
+					CMD_OVERRIDE;
 
 				CRPG_RankManager::ChatAreaRank(player, CRPG::EdicttoIndex(pEntity));
 			}
 
-			return PLUGIN_STOP;
+			CMD_OVERRIDE;
 		}
 
 		menu = CRPG_Menu::AddMenu(pEntity);
 		if(menu == NULL) {
 			CRPG::ConsoleMsg("menu = NULL (3)", MTYPE_ERROR);
-			return PLUGIN_STOP;
+			CMD_OVERRIDE;
 		}
 		menu->submenu = type;
 		if(type == top10)
 			menu->header = 0; /* turn off Credits header */
 
 		menu->CreateMenu();
-		return PLUGIN_STOP;
+		CMD_OVERRIDE;
 	}
 
-	return PLUGIN_CONTINUE;
-}
-
-/**
- * @brief Called when a client is authenticated.
- */
-PLUGIN_RESULT CPluginCSSRPG::NetworkIDValidated(const char *pszUserName, const char *pszNetworkID) {
-	return PLUGIN_CONTINUE;
+	CMD_CONTINUE;
 }
 
 /**
@@ -642,23 +818,28 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 		if(attacker == NULL) /* probably "world" */
 			return ;
 
-		WARN_IF(victim == NULL, return)
+		WARN_IF(victim == NULL, return);
 
 		CRPGI_IceStab::LimitDamage(victim, &dmg_health, (char*)weapon); /* limit damage to prevent lame headshots */
 
 		CRPG_StatsManager::PlayerDamage(attacker, victim, weapon, dmg_health, dmg_armor);
 		CRPGI_Vamp::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
-		if(CRPG::istrcmp((char*)weapon, "hegrenade"))
+		if(CRPG::istrcmp((char*)weapon, "hegrenade")) {
 			CRPGI_FNade::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
-		else if(CRPG::istrcmp((char*)weapon, "knife"))
+		}
+		else if(CRPG::istrcmp((char*)weapon, "knife")) {
 			CRPGI_IceStab::PlayerDamage(attacker, victim, dmg_health, dmg_armor);
+		}
 		else {
 			CRPGI_FPistol::PlayerDamage(attacker, victim, (char*)weapon);
 			CRPGI_Impulse::PlayerDamage(attacker, victim, (char*)weapon);
 		}
 	}
 	else if(!strcmp(name, "player_jump")) {
-		CRPGI_LJump::PlayerJump(event->GetInt("userid"));
+		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
+		WARN_IF(player == NULL, return);
+
+		CRPGI_LJump::PlayerJump(player);
 	}
 	else if(!strcmp(name, "item_pickup")) {
 		CRPG_Player *player = UserIDtoRPGPlayer(event->GetInt("userid"));
@@ -778,6 +959,7 @@ void CPluginCSSRPG::FireGameEvent(IGameEvent *event) {
 	}
 	else if(!strcmp(name, "round_start")) {
 		CRPGI_Denial::round_end = 0;
+		CRPGI_Impulse::RoundStart();
 	}
 	else if(!strcmp(name, "round_end")) {
 		CRPG_StatsManager::WinningTeam(event->GetInt("winner"), event->GetInt("reason"));

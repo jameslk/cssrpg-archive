@@ -23,7 +23,6 @@
 #include "engine/IEngineSound.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -370,7 +369,7 @@ RPG_CMD(setupgradelvl, "Set a player's Upgrade Level", 3, "<player name | userid
 
 	oldlvl = player->items[index].level;
 	player->items[index].level = newlvl;
-	item->sell_item((void*)player); /* do any item-specific deactivation */
+	item->sell_item(player); /* do any item-specific deactivation */
 
 	CRPG::ConsoleMsg("%s now has %s Level %d (previously Level %d)",
 		thiscmd, player->name(), item->name, newlvl, oldlvl);
@@ -411,7 +410,7 @@ RPG_CMD(giveall, "Give a player all the Upgrades available", 1, "<player name | 
 	while(i--) {
 		if(CRPG::item_types[i].enable) {
 			player->items[i].level = CRPG::item_types[i].maxlevel;
-			CRPG::item_types[i].buy_item((void*)player);
+			CRPG::item_types[i].buy_item(player);
 		}
 	}
 

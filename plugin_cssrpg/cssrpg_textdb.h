@@ -24,7 +24,7 @@
 #define TEXTDB_PATH "/cfg/cssrpg/languages/"
 #endif
 
-#define TXTDB_KEY_COUNT 51 /* REMEMBER TO UPDATE THIS AS MORE KEYS ARE ADDED!!! */
+#define TXTDB_KEY_COUNT 52 /* REMEMBER TO UPDATE THIS AS MORE KEYS ARE ADDED!!! */
 
 typedef struct {
 	char *s;
@@ -51,6 +51,7 @@ typedef struct {
 		txtkey_t fpistol;
 		txtkey_t denial;
 		txtkey_t impulse;
+		txtkey_t medic;
 	} items;
 
 	struct {
@@ -140,7 +141,7 @@ public:
 
 	file_info *file;
 	char *name;
-	char hidden;
+	bool hidden;
 	txt_keys txt;
 
 	/* Public Functions */

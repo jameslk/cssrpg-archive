@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -41,12 +40,13 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-template class CRPG_LinkedList<CRPGI_LJump>;
-template<> CRPGI_LJump* CRPG_LinkedList<CRPGI_LJump>::ll_first;
-template<> CRPGI_LJump* CRPG_LinkedList<CRPGI_LJump>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPGI_LJump>::ll_count;
+template class CRPG_StaticLinkedList<CRPGI_LJump>;
+template<> CRPGI_LJump* CRPG_StaticLinkedList<CRPGI_LJump>::ll_first;
+template<> CRPGI_LJump* CRPG_StaticLinkedList<CRPGI_LJump>::ll_last;
+template<> unsigned int CRPG_StaticLinkedList<CRPGI_LJump>::ll_count;
 
 void CRPGI_LJump::Init(void) {
+	ll_init();
 	return ;
 }
 
@@ -62,25 +62,24 @@ void CRPGI_LJump::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_LJump::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_LJump::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_LJump::SellItem(void *ptr) {
-	return ;
+bool CRPGI_LJump::SellItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_LJump::PlayerJump(int userid) {
-	CRPG_Player *player;
+void CRPGI_LJump::PlayerJump(CRPG_Player *player) {
 	CRPGI_LJump *jump;
 
-	player = UserIDtoRPGPlayer(userid);
 	WARN_IF(player == NULL, return)
 
 	jump = new CRPGI_LJump;
 	jump->index = player->index;
 	jump->userid = player->userid;
-	jump->prevel = player->cbp()->m_vecVelocity.Get();
+	#pragma message("NOTICE: Implement offset here")
+	jump->prevel = player->cbp()->m_vecVelocity.Get(); //here
 
 	jump->ll_add();
 	return ;
@@ -115,7 +114,8 @@ void CRPGI_LJump::CheckAll(void) {
 		next = jump->ll_next;
 		player = IndextoRPGPlayer(jump->index);
 		if(player != NULL) {
-			vel = player->cbp()->m_vecVelocity.Get();
+			#pragma message("NOTICE: Implement offset here")
+			vel = player->cbp()->m_vecVelocity.Get(); //here
 			if(vel.z > jump->prevel.z) {
 				jump->has_jumped(player, &vel);
 				jump->ll_del();

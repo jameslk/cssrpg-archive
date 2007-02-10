@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -36,7 +35,6 @@
 #include "cssrpg_menu.h"
 
 #include "items/rpgi.h"
-#include "items/rpgi_regen.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -75,7 +73,7 @@ void CRPG_MenuOptions::update_options(CRPG_Menu *menu) {
 	return ;
 }
 
-CRPG_MenuOptions* CRPG_MenuOptions::AddOption(CRPG_Menu *opt_menu, char opt_enabled, char *strf, ...) {
+CRPG_MenuOptions* CRPG_MenuOptions::AddOption(CRPG_Menu *opt_menu, bool opt_enabled, char *strf, ...) {
 	CRPG_MenuOptions *opt;
 	va_list ap;
 
@@ -272,8 +270,8 @@ void CRPG_Menu::UpgradesSelect(unsigned int option) {
 		CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.not_enough_credits), item->name, lvl+1, cost);
 	}
 	else {
-		player->BuyItem(item->index);
-		CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.item_bought), item->name, lvl+1);
+		if(player->BuyItem(item->index))
+			CRPG::ChatAreaMsg(this->index, TXTDB(player, menu_result.item_bought), item->name, lvl+1);
 	}
 
 	this->DelMenu();
@@ -705,9 +703,9 @@ void CRPG_Menu::GetMenu(void) {
 	return ;
 }
 
-void CRPG_Menu::SetOptions(char bit1, char bit2, char bit3, char bit4, char bit5, char bit6, char bit7, char bit8, char bit9) {
+void CRPG_Menu::SetOptions(bool bit1, bool bit2, bool bit3, bool bit4, bool bit5, bool bit6, bool bit7, bool bit8, bool bit9) {
 	unsigned int i = 9;
-	char opt_array[] = {bit1, bit2, bit3, bit4, bit5, bit6, bit7, bit8, bit9};
+	bool opt_array[] = {bit1, bit2, bit3, bit4, bit5, bit6, bit7, bit8, bit9};
 	this->options = 0;
 
 	while(i--)
@@ -721,7 +719,7 @@ void CRPG_Menu::SetOptions(unsigned int opt_num) {
 	return ;
 }
 
-void CRPG_Menu::SendOutput(char finalize) {
+void CRPG_Menu::SendOutput(bool finalize) {
 	MRecipientFilter filter;
 	bf_write *buffer;
 
@@ -740,7 +738,7 @@ void CRPG_Menu::SendOutput(char finalize) {
 	return ;
 }
 
-void CRPG_Menu::BuildOutput(char finalize, char *strf, ...) {
+void CRPG_Menu::BuildOutput(bool finalize, char *strf, ...) {
 	static char str[1024];
 	char *ptr = str;
 	va_list ap;
@@ -867,14 +865,6 @@ void CRPG_Menu::Init(void) {
 	nodes = menus;
 
 	return ;
-}
-
-CRPG_Menu* IndextoRPGMenu(int index) {
-	return CRPG_Menu::IndextoHandle(index);
-}
-
-CRPG_Menu* EdicttoRPGMenu(edict_t *e) {
-	return CRPG_Menu::EdicttoHandle(e);
 }
 
 CRPG_Menu* CRPG_Menu::AddMenu(edict_t *e) {

@@ -29,7 +29,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -102,11 +101,11 @@ CRPG_Database::CRPG_Database(char *name) {
 	unsigned int result;
 	#endif
 
-	db_name = (char*)calloc(128, sizeof(char));;
+	db_name = (char*)calloc(128, sizeof(char));
 	memset(db_name, 0, 128);
 	strncpy(db_name, name, 32);
 
-	db_path = new char[512];
+	db_path = (char*)calloc(512, sizeof(char));
 	s_engine->GetGameDir(db_path, 256);
 
 	#ifdef WIN32

@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -58,9 +57,62 @@ template class CRPG_PlayerClass<CRPGI_Denial>;
 template<> CRPGI_Denial** CRPG_PlayerClass<CRPGI_Denial>::nodes;
 CRPGI_Denial** CRPGI_Denial::players;
 unsigned int CRPGI_Denial::player_count;
-char CRPGI_Denial::round_end = 0;
-char CRPGI_Denial::players_spawned = 0;
+bool CRPGI_Denial::round_end = 0;
+bool CRPGI_Denial::players_spawned = 0;
 int CRPGI_Denial::last_bomb_index = -1;
+
+bool CRPGI_Denial::is_restricted(char *weapon) {
+	char *restricted = CRPG_GlobalSettings::denial_restrict;
+	unsigned int i, ii = 0, skip = 0,
+		rlen = strlen(restricted), wlen = strlen(weapon);
+
+	if(!rlen)
+		return 0;
+
+	if((wlen > 7) && !memcmp(weapon, "weapon_", 7)) {
+		weapon += 7;
+		wlen -= 7;
+	}
+
+	WARN_IF(!wlen, return 0);
+
+	for(i = 0;i < rlen;i++) {
+		if(!skip) {
+			if(restricted[i] == ' ') {
+				if(ii == wlen) {
+					return 1;
+				}
+				else {
+					ii = 0;
+					continue;
+				}
+			}
+			else if(ii > wlen) {
+				skip = 1;
+			}
+			else if(restricted[i] == weapon[ii]) {
+                ii++;
+				continue;
+			}
+			else if(tolower(restricted[i]) == tolower(weapon[ii])) {
+                ii++;
+				continue;
+			}
+			else {
+				skip = 1;
+			}
+		}
+		else if(restricted[i] == ' ') {
+			ii = 0;
+			skip = 0;
+		}
+	}
+
+	if((ii == wlen) && !skip)
+        return 1;
+
+	return 0;
+}
 
 void CRPGI_Denial::Init(void) {
 	unsigned int i;
@@ -83,12 +135,12 @@ void CRPGI_Denial::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_Denial::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_Denial::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_Denial::SellItem(void *ptr) {
-	return ;
+bool CRPGI_Denial::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 CRPGI_Denial* IndextoDenial(int index) {
@@ -168,13 +220,14 @@ void CRPGI_Denial::NextFrame(void) {
 	CRPGI_Denial *dn;
 	CRPG_Player *player;
 	unsigned int i;
-	static char players_stripped = 0;
+	static bool players_stripped = 0;
 
 	if(!players_spawned)
 		return ;
 
 	i = player_count;
 
+	/* Reset player Denial data while Denial is disabled */
 	IF_ITEM_NENABLED(ITEM_DENIAL) {
 		while(i--) {
 			if(CRPG_Player::players[i] != NULL) {
@@ -193,6 +246,7 @@ void CRPGI_Denial::NextFrame(void) {
 		return ;
 	}
 
+	/* Strip player weapons this frame */
 	if(!players_stripped) {
 		while(i--) {
 			if(CRPG_Player::players[i] != NULL) {
@@ -213,8 +267,8 @@ void CRPGI_Denial::NextFrame(void) {
 
 				if(player->items[ITEM_DENIAL].level >= 2) { /* Strip all weapons to make room for ours */
 					CRPG::SetCheats(1);
-					CRPG::s_helpers()->ClientCommand(player->e(), "give player_weaponstrip\n");
-					CRPG::s_helpers()->ClientCommand(player->e(), "ent_fire player_weaponstrip Strip\n");
+					s_helpers->ClientCommand(player->e(), "give player_weaponstrip\n");
+					s_helpers->ClientCommand(player->e(), "ent_fire player_weaponstrip Strip\n");
 					CRPG::SetCheats(0);
 				}
 			}
@@ -224,6 +278,7 @@ void CRPGI_Denial::NextFrame(void) {
 		return ;
 	}
 
+	/* Give players their Denial weapons this frame */
 	while(i--) {
 		if(CRPG_Player::players[i] != NULL) {
 			player = CRPG_Player::players[i];
@@ -248,15 +303,15 @@ void CRPGI_Denial::NextFrame(void) {
 
 			/* Level 1 */
 			if(player->items[ITEM_DENIAL].level >= 1) {
-				if(dn->inv.equip.flashbang)
+				if(dn->inv.equip.flashbang && !is_restricted("flashbang"))
 					CBasePlayer_GiveNamedItem(player->cbp(), "weapon_flashbang");
-				if(dn->inv.equip.hegrenade)
+				if(dn->inv.equip.hegrenade && !is_restricted("hegrenade"))
 					CBasePlayer_GiveNamedItem(player->cbp(), "weapon_hegrenade");
-				if(dn->inv.equip.smokegrenade)
+				if(dn->inv.equip.smokegrenade && !is_restricted("smokegrenade"))
 					CBasePlayer_GiveNamedItem(player->cbp(), "weapon_smokegrenade");
-				if(dn->inv.equip.defuser)
+				if(dn->inv.equip.defuser && !is_restricted("defuser"))
 					CBasePlayer_GiveNamedItem(player->cbp(), "item_defuser");
-				if(dn->inv.equip.nvgs)
+				if(dn->inv.equip.nvgs && !is_restricted("nvgs"))
 					CBasePlayer_GiveNamedItem(player->cbp(), "item_nvgs");
 			}
 			else {
@@ -266,7 +321,7 @@ void CRPGI_Denial::NextFrame(void) {
 
 			/* Level 2 */
 			if(player->items[ITEM_DENIAL].level >= 2) {
-				if(*dn->inv.secondary)
+				if(*dn->inv.secondary && !is_restricted(dn->inv.secondary))
 					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.secondary);
 				else if(*dn->inv.second_default)
 					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.second_default);
@@ -278,7 +333,7 @@ void CRPGI_Denial::NextFrame(void) {
 
 			/* Level 3 */
 			if(player->items[ITEM_DENIAL].level >= 3) {
-				if(*dn->inv.primary)
+				if(*dn->inv.primary && !is_restricted(dn->inv.primary))
 					CBasePlayer_GiveNamedItem(player->cbp(), dn->inv.primary);
 			}
 			else {

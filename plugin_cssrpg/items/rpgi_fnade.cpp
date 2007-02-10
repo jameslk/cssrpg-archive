@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -49,12 +48,12 @@ void CRPGI_FNade::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_FNade::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_FNade::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_FNade::SellItem(void *ptr) {
-	return ;
+bool CRPGI_FNade::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 void CRPGI_FNade::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int dmg_health, int dmg_armor) {

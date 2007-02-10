@@ -23,7 +23,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -61,6 +60,7 @@ void CRPG_TextDB::init_keyarray(void) {
 	ADD_KEY(items.fpistol);
 	ADD_KEY(items.denial);
 	ADD_KEY(items.impulse);
+	ADD_KEY(items.medic);
 	ADD_KEY(newlvl.msg1);
 	ADD_KEY(newlvl.msg2);
 	ADD_KEY(newbielvl.msg1);
@@ -202,6 +202,7 @@ void CRPG_TextDB::LoadDefault(void) {
 	ASSIGN(items.fpistol, "FrostPistol");
 	ASSIGN(items.denial, "Denial");
 	ASSIGN(items.impulse, "Impulse");
+	ASSIGN(items.medic, "Medic");
 	ASSIGN(newlvl.msg1, "%s is now Level %d");
 	ASSIGN(newlvl.msg2, "You have new credits (%ld total). Type \"rpgmenu\" to buy upgrades.");
 	ASSIGN(newbielvl.msg1, "\x04You have gained a new Level! This means you can buy Upgrades which give you an advantage over your opponents.\x01");

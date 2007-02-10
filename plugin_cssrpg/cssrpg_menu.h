@@ -34,7 +34,7 @@ public:
 	char str[1024];
 	int index;
 	int page_index;
-	char enabled;
+	bool enabled;
 
 	int page;
 	int nextpage;
@@ -53,7 +53,7 @@ public:
 		memset(&data, '\0', sizeof(data));
 	}
 
-	static CRPG_MenuOptions* AddOption(CRPG_Menu *opt_menu, char opt_enabled, char *strf, ...); /* Add option to end */
+	static CRPG_MenuOptions* AddOption(CRPG_Menu *opt_menu, bool opt_enabled, char *strf, ...); /* Add option to end */
 	static CRPG_MenuOptions* PageIndextoOpt(CRPG_Menu *menu, int opt_page, int opt_index);
 	char* MakeOutputStr(void);
 	void DelOption(void);
@@ -96,10 +96,10 @@ class CRPG_Menu: public CRPG_PlayerClass<CRPG_Menu>, private CRPG_GlobalSettings
 	void GetTop10Page(void);
 
 	void GetMenu(void);
-	void SetOptions(char bit1, char bit2, char bit3 = 0, char bit4 = 0, char bit5 = 0, char bit6 = 0, char bit7 = 0, char bit8 = 0, char bit9 = 0);
+	void SetOptions(bool bit1, bool bit2, bool bit3 = 0, bool bit4 = 0, bool bit5 = 0, bool bit6 = 0, bool bit7 = 0, bool bit8 = 0, bool bit9 = 0);
 	void SetOptions(unsigned int opt_num);
-	void BuildOutput(char finalize, char *str, ...);
-	void SendOutput(char finalize);
+	void BuildOutput(bool finalize, char *str, ...);
+	void SendOutput(bool finalize);
 
 public:
 	/* Public Variables */
@@ -113,7 +113,7 @@ public:
 	int page;
 	unsigned int options;
 
-	char header; /* Show the Credits header for this menu (on by default) */
+	bool header; /* Show the Credits header for this menu (on by default) */
 
 	/* Public Functions */
 	CRPG_Menu(): menu_outlen(0), submenu(none), opt_first(NULL), opt_last(NULL), opt_count(0), page(0), options(0), header(1) {
@@ -132,7 +132,12 @@ public:
 	unsigned int DelMenu(void);
 };
 
-CRPG_Menu* IndextoRPGMenu(int index);
-CRPG_Menu* EdicttoRPGMenu(edict_t *e);
+inline CRPG_Menu* IndextoRPGMenu(int index) {
+	return CRPG_Menu::IndextoHandle(index);
+}
+
+inline CRPG_Menu* EdicttoRPGMenu(edict_t *e) {
+	return CRPG_Menu::EdicttoHandle(e);
+}
 
 #endif

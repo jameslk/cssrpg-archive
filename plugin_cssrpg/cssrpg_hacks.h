@@ -60,7 +60,7 @@ class CRPG_SigScan {
 public:
 	/* Public Variables */
 	char sig_name[64];
-	char is_set; /* if the scan was successful or not */
+	bool is_set; /* if the scan was successful or not */
 	void *sig_addr;
 
 	/* Public Functions */
@@ -99,11 +99,12 @@ public:
 		long m_nRenderMode;
 		long m_clrRender;
 		long m_nRenderFX;
+		long m_ArmorValue;
+		long m_fFlags;
 	} netp;
 
 	static struct datap_s {
 		long m_vecVelocity;
-		long m_vecAbsOrigin;
 	} datap;
 	/* @} */
 
@@ -117,6 +118,10 @@ public:
 	static void DumpDataProps(FILE *fptr, CBaseEntity *cbe);
 };
 
+/* TempEnts Hacked Pointer */
+extern class ITempEntsSystem* tempents;
+void Initialize_TE_Pointer(class IEffects *effects);
+
 /* Hacked Functions */
 void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPCOnly = false, float flSize = 0.0f, bool bCalledByLevelDesigner = false);
 void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity);
@@ -124,6 +129,9 @@ CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbc
 int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iAmmoIndex, bool bSuppressSound = 0);
 void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide);
 CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, int iSubType = 0);
+CBaseEntity *CBaseEntity_CreateNoSpawn(const char *szName, const Vector &vecOrigin, const QAngle &vecAngles, CBaseEntity *pOwner);
+int DispatchSpawn(CBaseEntity *cbe);
+void CBaseEntity_SetParent(CBaseEntity *cbe, CBaseEntity *parent, int iAttachment = -1); //If iAttachment is -1, it'll preserve the current m_iParentAttachment.
 
 #define CHECK_DATAPROP(NAME) \
 	if(CRPG_ExternProps::datap.NAME == -1) { \
@@ -142,33 +150,55 @@ inline Vector* CBasePlayer_Velocity(CBaseEntity *cbe) {
 }
 
 /**
- * @brief Returns Vector pointer to an entity's absolute position.
- */
-inline Vector* CBasePlayer_GetAbsOrigin(CBaseEntity *cbe) {
-	CHECK_DATAPROP(m_vecAbsOrigin);
-
-	return (Vector*)((char*)cbe + CRPG_ExternProps::datap.m_vecAbsOrigin);
-}
-
-/**
  * @brief Sets an entity's current health.
  */
-inline void CBaseEntity_SetHealth(CBaseEntity *cbe, int health) {
+inline void CBaseEntity_SetHealth(CBaseEntity *cbe, unsigned int health) {
 	if(CRPG_ExternProps::netp.m_iHealth == -1)
 		return ;
 
-	*(int*)((char*)cbe + CRPG_ExternProps::netp.m_iHealth) = health;
+	*(unsigned int*)((char*)cbe + CRPG_ExternProps::netp.m_iHealth) = health;
 	return ;
 }
 
 /**
  * @brief Gets an entity's current health.
  */
-inline int CBaseEntity_GetHealth(CBaseEntity *cbe) {
+inline unsigned int CBaseEntity_GetHealth(CBaseEntity *cbe) {
 	if(CRPG_ExternProps::netp.m_iHealth == -1)
 		return 0;
 
-	return *(int*)((char*)cbe + CRPG_ExternProps::netp.m_iHealth);
+	return *(unsigned int*)((char*)cbe + CRPG_ExternProps::netp.m_iHealth);
+}
+
+/**
+ * @brief Sets an entity's current health.
+ */
+inline void CBasePlayer_SetArmor(CBasePlayer *cbp, unsigned int armor) {
+	if(CRPG_ExternProps::netp.m_iHealth == -1)
+		return ;
+
+	*(unsigned int*)((char*)cbp + CRPG_ExternProps::netp.m_ArmorValue) = armor;
+	return ;
+}
+
+/**
+ * @brief Gets an entity's current health.
+ */
+inline unsigned int CBasePlayer_GetArmor(CBasePlayer *cbp) {
+	if(CRPG_ExternProps::netp.m_iHealth == -1)
+		return 0;
+
+	return *(unsigned int*)((char*)cbp + CRPG_ExternProps::netp.m_ArmorValue);
+}
+
+/**
+ * @brief Gets a player's flags.
+ */
+inline int CBasePlayer_GetFlags(CBasePlayer *cbp) {
+	if(CRPG_ExternProps::netp.m_fFlags == -1)
+		return 0;
+
+	return *(unsigned int*)((char*)cbp + CRPG_ExternProps::netp.m_fFlags);
 }
 
 /**
@@ -194,9 +224,25 @@ inline void CBaseEntity_SetRenderFX(CBaseEntity *cbe, RenderFx_t fx) {
 }
 
 /**
+ * @brief Sets an entity's color.
+ */
+inline void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b) {
+	if(CRPG_ExternProps::netp.m_clrRender == -1)
+		return ;
+
+	color32 *clr = (color32*)((char*)cbe + CRPG_ExternProps::netp.m_clrRender);
+	
+	clr->r = r;
+	clr->g = g;
+	clr->b = b;
+
+	return ;
+}
+
+/**
  * @brief Sets an entity's color and alpha.
  */
-inline void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a = 255) {
+inline void CBaseEntity_SetRenderColor(CBaseEntity *cbe, byte r, byte g, byte b, byte a) {
 	if(CRPG_ExternProps::netp.m_clrRender == -1)
 		return ;
 

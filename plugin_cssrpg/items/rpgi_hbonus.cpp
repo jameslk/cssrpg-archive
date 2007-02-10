@@ -15,14 +15,11 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-#include <stdio.h>
-
 #include "interface.h"
 #include "filesystem.h"
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -34,110 +31,48 @@
 #define GAME_DLL 1
 
 #include "../cssrpg.h"
+#include "../cssrpg_hacks.h"
 #include "rpgi.h"
 #include "rpgi_hbonus.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-template class CRPG_PlayerClass<CRPGI_HBonus>;
-template<> CRPGI_HBonus** CRPG_PlayerClass<CRPGI_HBonus>::nodes;
-CRPGI_HBonus** CRPGI_HBonus::health_array;
-unsigned int CRPGI_HBonus::health_count;
-
 void CRPGI_HBonus::Init(void) {
-	unsigned int i;
-	health_count = (unsigned int)CRPG::maxClients();
-	i = health_count;
-
-	health_array = new CRPGI_HBonus *[health_count];
-	while(i--)
-		health_array[i] = NULL;
-
-	nodes = health_array;
-
 	return ;
 }
 
 void CRPGI_HBonus::ShutDown(void) {
-	free_nodes(health_count);
-
 	return ;
 }
 
-void CRPGI_HBonus::BuyItem(void *ptr) {
-	CRPG_Player *player = (CRPG_Player*)ptr;
-	CRPGI_HBonus *hb;
+bool CRPGI_HBonus::BuyItem(CRPG_Player *player) {
+	unsigned int health;
+	#pragma message("NOTICE: Offset")
 
 	IF_ITEM_NENABLED(ITEM_HBONUS)
-		return ;
+		return false;
 
-	hb = IndextoHBonus(player->index);
-	WARN_IF(hb == NULL, return)
+	health = CBaseEntity_GetHealth(player->cbp());
+	#pragma message("NOTICE: Offset")
+	if(health >= (100 + HBONUS_INC*(player->items[ITEM_HBONUS].level-1)))
+		CBaseEntity_SetHealth(player->cbp(), GetMaxHealth(player));
 
-	hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
-
-	return ;
+	return true;
 }
 
-void CRPGI_HBonus::SellItem(void *ptr) {
-	CRPG_Player *player = (CRPG_Player*)ptr;
-	CRPGI_HBonus *hb;
-
+bool CRPGI_HBonus::SellItem(CRPG_Player *player) {
 	IF_ITEM_NENABLED(ITEM_HBONUS)
-		return ;
+		return false;
 
-	hb = IndextoHBonus(player->index);
-	WARN_IF(hb == NULL, return)
+	#pragma message("NOTICE: Offset")
+	if(CBaseEntity_GetHealth(player->cbp()) > GetMaxHealth(player))
+		CBaseEntity_SetHealth(player->cbp(), GetMaxHealth(player));
 
-	hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
-	if(player->cbp()->GetHealth() > (int)hb->health)
-		player->cbp()->SetHealth(hb->health);
-
-	return ;
-}
-
-void CRPGI_HBonus::PlayerUpdate(CRPG_Player *player) {
-	CRPGI_HBonus *hb;
-
-	hb = IndextoHBonus(player->index);
-	WARN_IF(hb == NULL, return)
-
-	hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
-	player->cbp()->SetHealth(hb->health);
-
-	return ;
-}
-
-CRPGI_HBonus* IndextoHBonus(int index) {
-	return CRPGI_HBonus::IndextoHandle(index);
-}
-
-CRPGI_HBonus* EdicttoHBonus(edict_t *e) {
-	return CRPGI_HBonus::EdicttoHandle(e);
-}
-
-void CRPGI_HBonus::AddPlayer(edict_t *e) {
-	CRPGI_HBonus *hb;
-	CRPG_Player *player;
-
-	hb = new_node(e);
-	if((player = IndextoRPGPlayer(hb->index)) != NULL)
-		hb->health = 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
-	else
-		hb->health = 100;
-
-	return ;
-}
-
-void CRPGI_HBonus::DelPlayer(void) {
-	del_node(this);
-	return ;
+	return true;
 }
 
 void CRPGI_HBonus::SetSpawnHealth(CRPG_Player *player) {
-	CRPGI_HBonus *hb;
-
 	WARN_IF(player == NULL, return)
 
 	IF_ITEM_NENABLED(ITEM_HBONUS)
@@ -146,10 +81,8 @@ void CRPGI_HBonus::SetSpawnHealth(CRPG_Player *player) {
 	IF_BOT_NENABLED(player)
 		return ;
 
-	hb = IndextoHBonus(player->index);
-	WARN_IF(hb == NULL, return)
-
-	player->cbp()->SetHealth(hb->health);
+	#pragma message("NOTICE: Offset")
+	CBaseEntity_SetHealth(player->cbp(), GetMaxHealth(player));
 
 	return ;
 }

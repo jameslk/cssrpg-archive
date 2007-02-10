@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -34,6 +33,7 @@
 #define GAME_DLL 1
 
 #include "../cssrpg.h"
+#include "../cssrpg_hacks.h"
 #include "rpgi.h"
 #include "rpgi_hbonus.h"
 #include "rpgi_regen.h"
@@ -61,18 +61,17 @@ void CRPGI_Regen::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_Regen::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_Regen::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_Regen::SellItem(void *ptr) {
-	return ;
+bool CRPGI_Regen::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 TIMER_FUNC(CRPGI_Regen::IncreaseHealth) {
 	CRPG_Player *player;
 	unsigned int lvl, i = CRPG_Player::player_count;
-	CRPGI_HBonus *hb;
 
 	IF_ITEM_NENABLED(ITEM_REGEN)
 		return ;
@@ -84,15 +83,15 @@ TIMER_FUNC(CRPGI_Regen::IncreaseHealth) {
 				continue;
 
 			lvl = player->items[ITEM_REGEN].level;
-			hb = IndextoHBonus(player->index);
 			if(lvl) {
-				if(player->cbp()->GetHealth() < (int)hb->health) {
+				if(/* player->cbp()->GetHealth() < (int)hb->health*/ 1) {
+					#pragma message("NOTICE: Offset")
 					IF_ITEM_ENABLED(ITEM_HBONUS)
-						player->cbp()->SetHealth(player->cbp()->GetHealth()+lvl > hb->health ?
-							hb->health : player->cbp()->GetHealth()+lvl);
+						CBaseEntity_SetHealth(player->cbp(), CBaseEntity_GetHealth(player->cbp())+lvl > CRPGI_HBonus::GetMaxHealth(player) ?
+							CRPGI_HBonus::GetMaxHealth(player) : CBaseEntity_GetHealth(player->cbp())+lvl);
 					else
-						player->cbp()->SetHealth(player->cbp()->GetHealth()+lvl > 100 ?
-							100 : player->cbp()->GetHealth()+lvl);
+						CBaseEntity_SetHealth(player->cbp(), CBaseEntity_GetHealth(player->cbp())+lvl > 100 ?
+							100 : CBaseEntity_GetHealth(player->cbp())+lvl);
 				}
 			}
 		}

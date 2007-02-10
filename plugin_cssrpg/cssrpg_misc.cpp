@@ -25,7 +25,6 @@
 #include "engine/IEngineSound.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -37,6 +36,7 @@
 #define GAME_DLL 1
 
 #include "MRecipientFilter.h"
+#include "MTraceFilterSimple.h"
 
 #include "cssrpg.h"
 #include "cssrpg_menu.h"
@@ -53,14 +53,6 @@ FILE* CRPG_Utils::dlog_fptr = NULL;
 int CRPG_Utils::textmsg = -1;
 int CRPG_Utils::hinttext = -1;
 int CRPG_Utils::vguimenu = -1;
-
-int CRPG_Utils::maxClients(void) {
-	return s_globals->maxClients;
-}
-
-int CRPG_Utils::currentClients(void) {
-	return s_engine->GetEntityCount();
-}
 
 unsigned int CRPG_Utils::IsValidEdict(edict_t *e) {
 	if(e == NULL)
@@ -128,32 +120,6 @@ edict_t* CRPG_Utils::UserIDtoEdict(int userid) {
 	return NULL;
 }
 
-edict_t* CRPG_Utils::IndextoEdict(int index) {
-	return s_engine->PEntityOfEntIndex(index);
-}
-
-int CRPG_Utils::IndextoUserID(int index) {
-	return s_engine->GetPlayerUserId(s_engine->PEntityOfEntIndex(index));
-}
-
-int CRPG_Utils::EdicttoIndex(edict_t *e) {
-	return s_engine->IndexOfEdict(e);
-}
-
-int CRPG_Utils::EdicttoUserid(edict_t *e) {
-	return s_engine->GetPlayerUserId(e);
-}
-
-IPlayerInfo* CRPG_Utils::EdicttoPlayerInfo(edict_t *e) {
-	return s_playerinfomanager->GetPlayerInfo(e);
-}
-
-const char* CRPG_Utils::EdicttoSteamID(edict_t *e) {
-	IPlayerInfo *info = s_playerinfomanager->GetPlayerInfo(e);
-
-	return info->GetNetworkIDString();
-}
-
 int CRPG_Utils::UserMessageIndex(char *name) {
 	char cmpname[256];
 	int i, sizereturn = 0;
@@ -219,7 +185,7 @@ void CRPG_Utils::ChatAreaMsg(int index, char *msgf, ...) {
 		return ;
 
 	if (!index)
-		filter.AddAllPlayers(maxClients());
+		filter.AddAllPlayers();
 	else
 		filter.AddRecipient(index);
 
@@ -301,7 +267,7 @@ void CRPG_Utils::HintTextMsg(int index, char *msgf, ...) {
 		return ;
 
 	if (!index)
-		filter.AddAllPlayers(maxClients());
+		filter.AddAllPlayers();
 	else
 		filter.AddRecipient(index);
 
@@ -324,7 +290,7 @@ void CRPG_Utils::EmitSound(int index, char *sound_path, float vol, CRPG_Player *
 		return ;
 
 	if (!index)
-		filter.AddAllPlayers(maxClients());
+		filter.AddAllPlayers();
 	else
 		filter.AddRecipient(index);
 
@@ -337,7 +303,7 @@ void CRPG_Utils::EmitSound(int index, char *sound_path, float vol, CRPG_Player *
 	else
 		s_esounds->EmitSound((IRecipientFilter&)filter, follow->index, CHAN_AUTO,
 		                   sound_path, vol, ATTN_NORM, 0, PITCH_NORM,
-						   &follow->cbp()->m_vecAbsOrigin,
+						   &follow->cbp()->m_vecAbsOrigin, //here
 						   NULL, NULL, true, 0.0f, follow->index);
 	#pragma message("NOTICE: Implement offset here")
 
@@ -349,7 +315,7 @@ void CRPG_Utils::ShowMOTD(int index, char *title, char *msg, motd_type type, cha
     MRecipientFilter filter;
 
 	if(index > maxClients() || index < 0)
-		filter.AddAllPlayers(maxClients());
+		filter.AddAllPlayers();
 	else
 		filter.AddRecipient(index);
 
@@ -396,9 +362,9 @@ void CRPG_Utils::ShowMOTD(int index, char *title, char *msg, motd_type type, cha
 	return ;
 }
 
-void CRPG_Utils::SetCheats(char enable, char temporary) {
+void CRPG_Utils::SetCheats(bool enable, bool temporary) {
 	static ConVar *cheats_cvar = (ConVar*)2;
-	static char already_set = 0;
+	static bool already_set = 0;
 
 	if(cheats_cvar == (ConVar*)2)
 		cheats_cvar = s_cvar->FindVar("sv_cheats");
@@ -417,6 +383,17 @@ void CRPG_Utils::SetCheats(char enable, char temporary) {
 		}
 		cheats_cvar->m_nFlags &= ~FCVAR_NOTIFY;
 	}
+
+	return ;
+}
+
+void CRPG_Utils::TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, const IHandleEntity *ignore, int collisionGroup, trace_t *ptr ) {
+	Ray_t ray;
+	MTraceFilterSimple traceFilter(ignore, collisionGroup);
+
+	ray.Init(vecAbsStart, vecAbsEnd);
+
+	s_enginetrace->TraceRay(ray, mask, &traceFilter, ptr);
 
 	return ;
 }
@@ -624,25 +601,25 @@ char* CRPG_Utils::istrstr(char *str, char *substr) {
 }
 
 /* Non-retarded version of snprintf */
-int CRPG_Utils::snprintf(char *buf, size_t length, const char *format, ...) {
+int CRPG_Utils::snprintf(char *buf, size_t buf_size, const char *format, ...) {
 	char *temp_buf;
 	int result;
 	va_list ap;
 
 	WARN_IF(buf == NULL, return 0)
 
-	temp_buf = (char*)calloc(length, sizeof(char));
+	temp_buf = (char*)calloc(buf_size, sizeof(char));
 	WARN_IF(temp_buf == NULL, return 0)
 
 	va_start(ap, format);
-	result = Q_vsnprintf(temp_buf, (--length), format, ap);
+	result = Q_vsnprintf(temp_buf, --buf_size, format, ap);
 	va_end(ap);
 
 	if(result < 1)
 		goto end;
 
-	strncpy(buf, temp_buf, length);
-	buf[length] = '\0';
+	strncpy(buf, temp_buf, buf_size);
+	buf[buf_size] = '\0';
 
 end:
 	free(temp_buf);

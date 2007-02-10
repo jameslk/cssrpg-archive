@@ -21,24 +21,26 @@
 #define FPISTOL_GLOCK	0.45
 #define FPISTOL_USP		0.45
 #define FPISTOL_P228	0.3
-#define FPISTOL_DEAGLE	0.55
-#define FPISTOL_ELITE	0.55
+#define FPISTOL_DEAGLE	0.50
+#define FPISTOL_ELITE	0.8
 #define FPISTOL_FSEVEN	0.3
 
 #define FPISTOL_INC 0.1 /* FrostPistol speed time increase for each level */
 
-class CRPGI_FPistol: public CRPG_LinkedList<CRPGI_FPistol> {
+class CRPGI_FPistol: public CRPG_StaticLinkedList<CRPGI_FPistol> {
 	/* Private Variables */
-	int v_index;
 	float end_tm;
 	float last_speed;
+	int v_index;
+
+	friend class CRPGI_Impulse;
 
 public:
 	/* Public Functions */
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 
 	static void GameFrame(void);
 	static void PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, char *weapon);

@@ -23,7 +23,7 @@
 
 class Vector;
 #include "../cssrpg_misc.h"
-class CRPGI_LJump: public CRPG_LinkedList<CRPGI_LJump> {
+class CRPGI_LJump: public CRPG_StaticLinkedList<CRPGI_LJump> {
 private:
 	/* Private Variables */
 	int index;
@@ -37,10 +37,10 @@ public:
 	/* Public Functions */
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 
-	static void PlayerJump(int userid);
+	static void PlayerJump(CRPG_Player *player);
 	static void PlayerFootStep(int userid);
 	static void CheckAll(void);
 };

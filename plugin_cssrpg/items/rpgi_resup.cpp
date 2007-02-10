@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -61,12 +60,12 @@ void CRPGI_Resup::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_Resup::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_Resup::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_Resup::SellItem(void *ptr) {
-	return ;
+bool CRPGI_Resup::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 TIMER_FUNC(CRPGI_Resup::IncreaseAmmo) {

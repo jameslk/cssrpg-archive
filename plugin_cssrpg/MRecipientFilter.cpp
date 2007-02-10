@@ -15,13 +15,11 @@
 #   3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "MRecipientFilter.h" 
 #include "interface.h" 
 #include "filesystem.h" 
 #include "engine/iserverplugin.h" 
 #include "dlls/iplayerinfo.h" 
-#include "eiface.h" 
-#include "igameevents.h" 
+#include "eiface.h"
 #include "convar.h" 
 #include "Color.h" 
  
@@ -31,6 +29,7 @@
 
 #include "cssrpg.h"
 #include "cssrpg_interface.h"
+#include "MRecipientFilter.h"
  
 // memdbgon must be the last include file in a .cpp file!!! 
 #include "tier0/memdbgon.h" 
@@ -60,20 +59,25 @@ bool MRecipientFilter::IsReliable() const {
    return false; 
 } 
  
-void MRecipientFilter::AddAllPlayers(int maxClients) {
-	edict_t *pPlayer;
+void MRecipientFilter::AddAllPlayers(void) {
+	unsigned int i = CRPG_Player::player_count;
 
 	m_Recipients.RemoveAll();
-	int i; 
-	for (i = 1; i <= maxClients; i++) { 
-		pPlayer = s_engine->PEntityOfEntIndex(i);
-		if(!pPlayer || pPlayer->IsFree())
-			continue;
 
-		if(s_engine->GetPlayerUserId(pPlayer) < 0)
-			continue;
+	while(i--) {
+		if((CRPG_Player::players[i] != NULL) && !CRPG_Player::players[i]->isfake())
+			m_Recipients.AddToTail(CRPG_Player::players[i]->index);
+	}
 
-		m_Recipients.AddToTail(i); 
+	return ;
+}
+
+void MRecipientFilter::AddTeam(cssteam_t team) {
+	unsigned int i = CRPG_Player::player_count;
+
+	while(i--) {
+		if((CRPG_Player::players[i] != NULL) && (CRPG_Player::players[i]->css.team == team) && !CRPG_Player::players[i]->isfake())
+			m_Recipients.AddToTail(CRPG_Player::players[i]->index);
 	}
 
 	return ;

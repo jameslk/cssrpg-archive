@@ -20,7 +20,9 @@
 #include "irecipientfilter.h"
 #include "bitvec.h"
 #include "tier1/utlvector.h"
- 
+
+#include "cssrpg.h"
+
 class MRecipientFilter: public IRecipientFilter {
 public:
 	MRecipientFilter(void);
@@ -28,10 +30,14 @@ public:
 	
 	virtual bool IsReliable(void) const;
 	virtual bool IsInitMessage(void) const;
+
 	virtual int GetRecipientCount(void) const;
 	virtual int GetRecipientIndex(int slot) const;
-	void AddAllPlayers(int maxClients);
+
+	void AddAllPlayers(void);
+	void AddTeam(enum cssteam_t team);
 	void AddRecipient(int index);
+
 	void RemoveAllRecipients(void);
 	void RemoveRecipient(int index);
 

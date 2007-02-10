@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -48,10 +47,10 @@ void CRPGI_Damage::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_Damage::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_Damage::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_Damage::SellItem(void *ptr) {
-	return ;
+bool CRPGI_Damage::SellItem(CRPG_Player *player) {
+	return true;
 }

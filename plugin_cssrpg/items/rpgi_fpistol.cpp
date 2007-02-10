@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -36,13 +35,18 @@
 #include "../cssrpg.h"
 #include "../cssrpg_hacks.h"
 #include "rpgi.h"
+#include "rpgi_impulse.h"
 #include "rpgi_fpistol.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-#define PISTOL_COUNT 6
+template class CRPG_StaticLinkedList<CRPGI_FPistol>;
+template<> CRPGI_FPistol* CRPG_StaticLinkedList<CRPGI_FPistol>::ll_first;
+template<> CRPGI_FPistol* CRPG_StaticLinkedList<CRPGI_FPistol>::ll_last;
+template<> unsigned int CRPG_StaticLinkedList<CRPGI_FPistol>::ll_count;
 
+#define PISTOL_COUNT 6
 struct {
 	char *name;
 	float speed;
@@ -55,12 +59,8 @@ struct {
 	{"fiveseven", FPISTOL_FSEVEN}
 };
 
-template class CRPG_LinkedList<CRPGI_FPistol>;
-template<> CRPGI_FPistol* CRPG_LinkedList<CRPGI_FPistol>::ll_first;
-template<> CRPGI_FPistol* CRPG_LinkedList<CRPGI_FPistol>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPGI_FPistol>::ll_count;
-
 void CRPGI_FPistol::Init(void) {
+	ll_init();
 	return ;
 }
 
@@ -76,12 +76,12 @@ void CRPGI_FPistol::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_FPistol::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_FPistol::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_FPistol::SellItem(void *ptr) {
-	return ;
+bool CRPGI_FPistol::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 void CRPGI_FPistol::GameFrame(void) {
@@ -93,19 +93,16 @@ void CRPGI_FPistol::GameFrame(void) {
 
 	for(fp = ll_first;fp != NULL;fp = next) {
 		next = fp->ll_next;
-		if(CRPG::s_globals()->curtime >= fp->end_tm) {
+		if(s_globals->curtime > fp->end_tm) {
 			v_player = IndextoRPGPlayer(fp->v_index);
 			if(v_player != NULL) {
 				CRPG::SetCheats(1);
-				CRPG::s_helpers()->ClientCommand(v_player->e(), "ent_fire player_speedmod ModifySpeed 1.0\n");
+				s_helpers->ClientCommand(v_player->e(), "ent_fire player_speedmod ModifySpeed 1.0\n");
 				CRPG::SetCheats(0);
-				fp->ll_del();
-				delete fp;
 			}
-			else {
-				fp->ll_del();
-				delete fp;
-			}
+
+			fp->ll_del();
+			delete fp;
 		}
 	}
 
@@ -114,6 +111,8 @@ void CRPGI_FPistol::GameFrame(void) {
 
 void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, char *weapon) {
 	CRPGI_FPistol *fp = NULL;
+	CRPGI_Impulse *impulse;
+	CRPG_Player *impulse_player;
 	unsigned int i = PISTOL_COUNT;
 	char entfire_str[64];
 
@@ -131,8 +130,22 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 	if(!attacker->items[ITEM_FPISTOL].level)
 		return ;
 
-	while(i--) {
+	while(i--) { /* Looping this way is required (since we are comparing against all weapons), so don't change it */
 		if(CRPG::istrcmp(weapon, pistols[i].name)) {
+			for(impulse = CRPGI_Impulse::ll_first;impulse != NULL;impulse = impulse->ll_next) {
+				if(impulse->v_index == victim->index) {
+					/* Cancel Impulse for this player so it doesn't interfere with this item */
+					impulse_player = IndextoRPGPlayer(impulse->v_index);
+					if(impulse_player != NULL) {
+						CBaseEntity_SetRenderMode(impulse_player->cbp(), kRenderTransColor);
+						CBaseEntity_SetRenderColor(impulse_player->cbp(), 255, 255, 255); /* Reset render color */
+					}
+					impulse->ll_del();
+					delete impulse;
+					break;
+				}
+			}
+
 			for(fp = ll_first;fp != NULL;fp = fp->ll_next) {
 				if(fp->v_index == victim->index)
 					break;
@@ -146,8 +159,8 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 
 				CRPG::snprintf(entfire_str, 64, "ent_fire player_speedmod ModifySpeed %f\n", fp->last_speed);
 				CRPG::SetCheats(1);
-				CRPG::s_helpers()->ClientCommand(victim->e(), "give player_speedmod\n");
-				CRPG::s_helpers()->ClientCommand(victim->e(), entfire_str);
+				s_helpers->ClientCommand(victim->e(), "give player_speedmod\n");
+				s_helpers->ClientCommand(victim->e(), entfire_str);
 				CRPG::SetCheats(0);
 			}
 			else {
@@ -155,7 +168,7 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 					fp->last_speed = pistols[i].speed;
 					CRPG::snprintf(entfire_str, 64, "ent_fire player_speedmod ModifySpeed %f\n", fp->last_speed);
 					CRPG::SetCheats(1);
-					CRPG::s_helpers()->ClientCommand(victim->e(), entfire_str);
+					s_helpers->ClientCommand(victim->e(), entfire_str);
 					CRPG::SetCheats(0);
 				}
 			}
@@ -178,7 +191,8 @@ void CRPGI_FPistol::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, cha
 					break;
 			}
 
-			fp->end_tm = CRPG::s_globals()->curtime+((float)attacker->items[ITEM_FPISTOL].level*(float)FPISTOL_INC);
+			fp->end_tm = s_globals->curtime+((float)attacker->items[ITEM_FPISTOL].level*(float)FPISTOL_INC);
+			break;
 		}
 	}
 

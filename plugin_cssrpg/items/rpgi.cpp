@@ -23,7 +23,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -38,6 +37,8 @@
 #include "rpgi_icestab.h"
 #include "rpgi_fpistol.h"
 #include "rpgi_denial.h"
+#include "rpgi_impulse.h"
+#include "rpgi_medic.h"
 #include "rpgi.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -47,9 +48,13 @@ void CRPGI::Init(void) {
 	CRPGI_HBonus::Init();
 	CRPGI_Regen::Init();
 	CRPGI_Resup::Init();
+	CRPGI_LJump::Init();
 	CRPGI_Stealth::Init();
 	CRPGI_IceStab::Init();
+	CRPGI_FPistol::Init();
 	CRPGI_Denial::Init();
+	CRPGI_Impulse::Init();
+	CRPGI_Medic::Init();
 
 	return ;
 }
@@ -60,8 +65,23 @@ void CRPGI::ShutDown(void) {
 	CRPGI_Resup::ShutDown();
 	CRPGI_LJump::ShutDown();
 	CRPGI_Stealth::ShutDown();
+	CRPGI_IceStab::ShutDown();
 	CRPGI_FPistol::ShutDown();
 	CRPGI_Denial::ShutDown();
+	CRPGI_Impulse::ShutDown();
+	CRPGI_Medic::ShutDown();
+
+	return ;
+}
+
+void CRPGI::AddPlayer(CRPG_Player *player) {
+	WARN_IF(player == NULL, return);
+
+	return ;
+}
+
+void CRPGI::DelPlayer(CRPG_Player *player) {
+	WARN_IF(player == NULL, return);
 
 	return ;
 }
@@ -112,14 +132,6 @@ VAR_FUNC(CRPGI::CVARItemMaxLvl) {
 	return ;
 }
 
-void CRPGI::PlayerUpdate(CRPG_Player *player) {
-	WARN_IF(player == NULL, return)
-
-	CRPGI_HBonus::PlayerUpdate(player);
-
-	return ;
-}
-
 unsigned int CRPGI::GetItemCost(unsigned int item_index, unsigned int lvl) {
 	struct item_type *item;
 
@@ -135,7 +147,12 @@ unsigned int CRPGI::GetItemSale(unsigned int item_index, unsigned int lvl) {
 	unsigned int cost, sale;
 	struct item_type *item;
 
+	WARN_IF(item_index > ITEM_COUNT, return 0);
+
 	item = &CRPG::item_types[item_index];
+
+	WARN_IF((lvl > item->maxlevel) || (lvl < 1), return 0);
+
 	cost = (item->inc_cost*(lvl-1))+item->start_cost;
 
 	if(sale_percent == 1.0)

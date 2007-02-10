@@ -29,7 +29,7 @@ public:
 	/* Public Functions */
 	/* Calculate the experience needed for this level */
 	static void player_new_lvl(CRPG_Player *player, unsigned int lvl_inc);
-	static void add_exp(CRPG_Player *player, unsigned long exp, char hidenotice = 0);
+	static void add_exp(CRPG_Player *player, unsigned long exp, bool hidenotice = 0);
 
 	static unsigned int LvltoExp(unsigned int lvl);
 
@@ -71,7 +71,7 @@ public:
 	static unsigned int teamt_count;
 	static unsigned int teamct_count;
 
-	static char roundend_check;
+	static bool roundend_check;
 
 	static void RoundEnd(void);
 };

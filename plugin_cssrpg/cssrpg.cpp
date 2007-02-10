@@ -23,7 +23,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -33,6 +32,8 @@
 #define GAME_DLL 1
 #include "cbase.h"
 #define GAME_DLL 1
+
+#include "in_buttons.h"
 
 #include "cssrpg_menu.h"
 #include "cssrpg_console.h"
@@ -51,6 +52,7 @@
 #include "items/rpgi_fpistol.h"
 #include "items/rpgi_denial.h"
 #include "items/rpgi_impulse.h"
+#include "items/rpgi_medic.h"
 
 #include "cssrpg.h"
 
@@ -144,6 +146,13 @@ void CRPG::init_item_types(void) {
 	item_types[ITEM_FPISTOL].buy_item = CRPGI_FPistol::BuyItem;
 	item_types[ITEM_FPISTOL].sell_item = CRPGI_FPistol::SellItem;
 
+	/* Impulse */
+	strcpy(item_types[ITEM_IMPULSE].name, "Impulse");
+	strcpy(item_types[ITEM_IMPULSE].shortname, "impulse");
+	item_types[ITEM_IMPULSE].maxlevelbarrier = 10;
+	item_types[ITEM_IMPULSE].buy_item = CRPGI_Impulse::BuyItem;
+	item_types[ITEM_IMPULSE].sell_item = CRPGI_Impulse::SellItem;
+
 	/* Denial */
 	strcpy(item_types[ITEM_DENIAL].name, "Denial");
 	strcpy(item_types[ITEM_DENIAL].shortname, "denial");
@@ -151,12 +160,12 @@ void CRPG::init_item_types(void) {
 	item_types[ITEM_DENIAL].buy_item = CRPGI_Denial::BuyItem;
 	item_types[ITEM_DENIAL].sell_item = CRPGI_Denial::SellItem;
 
-	/* Impulse */
-	strcpy(item_types[ITEM_IMPULSE].name, "Impulse");
-	strcpy(item_types[ITEM_IMPULSE].shortname, "impulse");
-	item_types[ITEM_IMPULSE].maxlevelbarrier = 10;
-	item_types[ITEM_IMPULSE].buy_item = CRPGI_Impulse::BuyItem;
-	item_types[ITEM_IMPULSE].sell_item = CRPGI_Impulse::SellItem;
+	/* Medic */
+	strcpy(item_types[ITEM_MEDIC].name, "Medic");
+	strcpy(item_types[ITEM_MEDIC].shortname, "medic");
+	item_types[ITEM_MEDIC].maxlevelbarrier = 20;
+	item_types[ITEM_MEDIC].buy_item = CRPGI_Medic::BuyItem;
+	item_types[ITEM_MEDIC].sell_item = CRPGI_Medic::SellItem;
 
 	return ;
 }
@@ -337,14 +346,6 @@ void CRPG_Player::SaveAll(void) {
 	return ;
 }
 
-CRPG_Player* IndextoRPGPlayer(int index) {
-	return CRPG_Player::IndextoHandle(index);
-}
-
-CRPG_Player* EdicttoRPGPlayer(edict_t *e) {
-	return CRPG_Player::EdicttoHandle(e);
-}
-
 CRPG_Player* UserIDtoRPGPlayer(int userid) {
 	unsigned int i = CRPG_Player::player_count;
 
@@ -461,7 +462,7 @@ void CRPG_Player::InsertPlayer(void) {
 	return ;
 }
 
-void CRPG_Player::LoadData(char init) {
+void CRPG_Player::LoadData(bool init) {
 	unsigned int retval, i;
 	int temp_credits;
 	struct tbl_result *result;
@@ -607,7 +608,12 @@ unsigned int CRPG_Player::GiveItem(unsigned int item_index) {
 		return 0;
 
 	this->items[item_index].level++;
-	CRPG::item_types[item_index].buy_item(this); /* do any item-specific activation */
+
+	/* do any item-specific activation */
+	if(!CRPG::item_types[item_index].buy_item(this)) {
+		this->items[item_index].level--;
+		return 0;
+	}
 
 	return 1;
 }
@@ -619,7 +625,12 @@ unsigned int CRPG_Player::TakeItem(unsigned int item_index) {
 		return 0;
 
 	this->items[item_index].level--;
-	CRPG::item_types[item_index].sell_item(this); /* do any item-specific deactivation */
+
+	/* do any item-specific deactivation */
+	if(!CRPG::item_types[item_index].sell_item(this)) {
+		this->items[item_index].level++;
+		return 0;
+	}
 
 	return 1;
 }
@@ -638,7 +649,7 @@ unsigned int CRPG_Player::BuyItem(unsigned int item_index) {
 		return 0;
 
 	CRPG::DebugMsg(1, "%s bought item %s Lvl %d",
-		this->name(), CRPG::item_types[item_index].name, this->items[item_index].level);
+		this->name(), CRPG::item_types[item_index].name, this->items[item_index].level+1);
 
 	if(!this->GiveItem(item_index))
 		return 0;
@@ -663,4 +674,18 @@ unsigned int CRPG_Player::SellItem(unsigned int item_index) {
 	this->credits += CRPGI::GetItemSale(item_index, this->items[item_index].level+1);
 
 	return 1;
+}
+
+void CRPG_Player::ProcessKeys(void) {
+	register unsigned int i = player_count;
+
+	while(i--) {
+		if(players[i] != NULL) {
+			if(players[i]->cbp()->m_nButtons & IN_USE) {
+				/* Use Key Down */
+			}
+		}
+	}
+
+	return ;
 }

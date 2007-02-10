@@ -27,8 +27,8 @@ class CRPGI_Stealth {
 public:
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 
 	static void SetVisibilities(void);
 	static TIMER_FUNC(UpdateVisibilities);

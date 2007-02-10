@@ -23,7 +23,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -127,7 +126,7 @@ void CRPG_StatsManager::player_new_lvl(CRPG_Player *player, unsigned int lvl_inc
 	return ;
 }
 
-void CRPG_StatsManager::add_exp(CRPG_Player *player, unsigned long exp, char hidenotice) {
+void CRPG_StatsManager::add_exp(CRPG_Player *player, unsigned long exp, bool hidenotice) {
 	unsigned int exp_req;
 
 	WARN_IF(player == NULL, return)
@@ -444,7 +443,7 @@ unsigned int CRPG_TeamBalance::teamt_total = 0;
 unsigned int CRPG_TeamBalance::teamct_total = 0;
 unsigned int CRPG_TeamBalance::teamt_count = 0;
 unsigned int CRPG_TeamBalance::teamct_count = 0;
-char CRPG_TeamBalance::roundend_check = 0;
+bool CRPG_TeamBalance::roundend_check = 0;
 
 void CRPG_TeamBalance::recalc_teams(void) {
 	unsigned int i = CRPG_Player::player_count;

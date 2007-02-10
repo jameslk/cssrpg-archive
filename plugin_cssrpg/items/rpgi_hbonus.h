@@ -21,33 +21,20 @@
 /* Health max increase for each level */
 #define HBONUS_INC 25
 
-#include "../cssrpg_misc.h"
-class CRPGI_HBonus: public CRPG_PlayerClass<CRPGI_HBonus> {
+#include "../cssrpg.h"
+class CRPGI_HBonus {
 public:
-	/* Public Variables */
-	static CRPGI_HBonus **health_array;
-	static unsigned int health_count;
-
-	unsigned int health;
-
 	/* Public Functions */
-	CRPGI_HBonus(): health(100) {
-		index = 0;
-		userid = 0;
-	}
-
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
-	static void PlayerUpdate(CRPG_Player *player);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 
-	static void AddPlayer(edict_t *e);
-	void DelPlayer(void);
+	static unsigned int GetMaxHealth(class CRPG_Player *player) {
+		return 100+(HBONUS_INC*player->items[ITEM_HBONUS].level);
+	}
+
 	static void SetSpawnHealth(CRPG_Player *player);
 };
-
-CRPGI_HBonus* IndextoHBonus(int index);
-CRPGI_HBonus* EdicttoHBonus(edict_t *e);
 
 #endif

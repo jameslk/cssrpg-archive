@@ -23,7 +23,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -35,6 +34,7 @@
 #define GAME_DLL 1
 
 #include "../cssrpg.h"
+#include "../cssrpg_hacks.h"
 #include "rpgi.h"
 #include "rpgi_hbonus.h"
 #include "rpgi_vamp.h"
@@ -50,35 +50,35 @@ void CRPGI_Vamp::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_Vamp::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_Vamp::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_Vamp::SellItem(void *ptr) {
-	return ;
+bool CRPGI_Vamp::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 void CRPGI_Vamp::add_health(CRPG_Player *player, unsigned int hp) {
-	CRPGI_HBonus *hb;
 	unsigned int new_health, max_health;
 
 	WARN_IF(player == NULL, return)
 
 	IF_ITEM_ENABLED(ITEM_HBONUS) {
-		hb = IndextoHBonus(player->index);
-		if((unsigned int)player->cbp()->GetHealth() >= hb->health)
+		#pragma message("NOTICE: Offset")
+		if(CBaseEntity_GetHealth(player->cbp()) >= CRPGI_HBonus::GetMaxHealth(player))
 			return ;
-		max_health = hb->health;
+		max_health = CRPGI_HBonus::GetMaxHealth(player);
 	}
 	else {
 		max_health = 100;
 	}
 
-	new_health = player->cbp()->GetHealth()+hp;
+	#pragma message("NOTICE: Offset")
+	new_health = CBaseEntity_GetHealth(player->cbp())+hp;
 	if(new_health <= max_health)
-		player->cbp()->SetHealth(new_health);
+		CBaseEntity_SetHealth(player->cbp(), new_health);
 	else
-		player->cbp()->SetHealth(max_health);
+		CBaseEntity_SetHealth(player->cbp(), max_health);
 
 	return ;
 }

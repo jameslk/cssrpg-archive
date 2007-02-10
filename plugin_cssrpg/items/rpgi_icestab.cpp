@@ -22,7 +22,6 @@
 #include "engine/iserverplugin.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -42,12 +41,13 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-template class CRPG_LinkedList<CRPGI_IceStab>;
-template<> CRPGI_IceStab* CRPG_LinkedList<CRPGI_IceStab>::ll_first;
-template<> CRPGI_IceStab* CRPG_LinkedList<CRPGI_IceStab>::ll_last;
-template<> unsigned int CRPG_LinkedList<CRPGI_IceStab>::ll_count;
+template class CRPG_StaticLinkedList<CRPGI_IceStab>;
+template<> CRPGI_IceStab* CRPG_StaticLinkedList<CRPGI_IceStab>::ll_first;
+template<> CRPGI_IceStab* CRPG_StaticLinkedList<CRPGI_IceStab>::ll_last;
+template<> unsigned int CRPG_StaticLinkedList<CRPGI_IceStab>::ll_count;
 
 void CRPGI_IceStab::Init(void) {
+	ll_init();
 	return ;
 }
 
@@ -63,18 +63,18 @@ void CRPGI_IceStab::ShutDown(void) {
 	return ;
 }
 
-void CRPGI_IceStab::BuyItem(void *ptr) {
-	return ;
+bool CRPGI_IceStab::BuyItem(CRPG_Player *player) {
+	return true;
 }
 
-void CRPGI_IceStab::SellItem(void *ptr) {
-	return ;
+bool CRPGI_IceStab::SellItem(CRPG_Player *player) {
+	return true;
 }
 
 void CRPGI_IceStab::GameFrame(void) {
 	register CRPG_Player *v_player;
 	register CRPGI_IceStab *stab, *next;
-	register float now = CRPG::s_globals()->curtime;
+	register float now = s_globals->curtime;
 
 	if(!ll_count)
 		return ;
@@ -85,18 +85,14 @@ void CRPGI_IceStab::GameFrame(void) {
 		if(v_player != NULL) {
 			if((stab->duration > 0) && (stab->duration < now)) {
 				CBaseEntity_SetMoveType((CBaseEntity*)v_player->cbp(), MOVETYPE_WALK, MOVECOLLIDE_DEFAULT);
-				engine->ClientCommand(v_player->e(), "exec cssrpg_config.cfg\n"); /* Set sensitivity back */
 				stab->duration = 0;
-			}
-			else if(stab->duration && (now >= stab->scheck_time)) {
-				engine->ClientCommand(v_player->e(), "sensitivity %f\n", ICESTAB_SENSITIVITY);
-				stab->scheck_time = now+0.5;
 			}
 
 			if(stab->fade < 255) {
 				stab->fade += ICESTAB_CLRFADE;
-				v_player->cbp()->SetRenderMode(kRenderTransColor);
-				v_player->cbp()->SetRenderColor(stab->fade, stab->fade, 255);
+				#pragma message("NOTICE: Offset")
+				CBaseEntity_SetRenderMode(v_player->cbp(), kRenderTransColor);
+				CBaseEntity_SetRenderColor(v_player->cbp(), stab->fade, stab->fade, 255);
 			}
 
 			if(!stab->duration && (stab->fade >= 255)) {
@@ -145,17 +141,12 @@ void CRPGI_IceStab::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int
 		stab = new CRPGI_IceStab;
 		stab->v_index = victim->index;
 		stab->ll_add();
-
-		/* make sure the old sensitivity isn't overwritten */
-		engine->ClientCommand(victim->e(), "host_writeconfig cssrpg_config.cfg\n");
 	}
 
-	stab->duration = CRPG::s_globals()->curtime+(ICESTAB_INC*attacker->items[ITEM_ICESTAB].level);
+	stab->duration = s_globals->curtime+(ICESTAB_INC*attacker->items[ITEM_ICESTAB].level);
 	stab->fade = 0;
 
 	CBaseEntity_SetMoveType((CBaseEntity*)victim->cbp(), MOVETYPE_NONE, MOVECOLLIDE_DEFAULT);
-	engine->ClientCommand(victim->e(), "sensitivity %f\n", ICESTAB_SENSITIVITY);
-	stab->scheck_time = CRPG::s_globals()->curtime+0.5;
 
 	switch(rand()%3) {
 		case 0:
@@ -171,8 +162,9 @@ void CRPGI_IceStab::PlayerDamage(CRPG_Player *attacker, CRPG_Player *victim, int
 			break;
 	}
 
-	victim->cbp()->SetRenderMode(kRenderTransColor);
-	victim->cbp()->SetRenderColor(0, 0, 255);
+	#pragma message("NOTICE: Offset")
+	CBaseEntity_SetRenderMode(victim->cbp(), kRenderTransColor);
+	CBaseEntity_SetRenderColor(victim->cbp(), 0, 0, 255);
 
 	return ;
 }
@@ -196,7 +188,8 @@ void CRPGI_IceStab::LimitDamage(CRPG_Player *victim, int *dmg_health, char *weap
 				/* CRPG::ChatAreaMsg(0, "damage = %d, prevhealth = %d, health = %d, gethealth = %d",
 					*dmg_health, victim->cbp()->GetHealth()+(*dmg_health), health, victim->cbp()->GetHealth()); */
 
-				set_hp = victim->cbp()->GetHealth()+(*dmg_health); /* The real handler uses the real damage */
+				#pragma message("NOTICE: Offset")
+				set_hp = CBaseEntity_GetHealth(victim->cbp())+(*dmg_health); /* The real handler uses the real damage */
 
 				/* CRPG::ChatAreaMsg(0, "set_hp = %d+%d = %d", victim->cbp()->GetHealth(), *dmg_health, set_hp); */
 
@@ -205,7 +198,8 @@ void CRPGI_IceStab::LimitDamage(CRPG_Player *victim, int *dmg_health, char *weap
 				/* CRPG::ChatAreaMsg(0, "new_hp = %d-%d = %d", set_hp, *dmg_health, set_hp-(*dmg_health));
 				CRPG::ChatAreaMsg(0, "------------------------------------------------------------"); */
 
-				victim->cbp()->SetHealth(set_hp-(*dmg_health));
+				#pragma message("NOTICE: Offset")
+				CBaseEntity_SetHealth(victim->cbp(), set_hp-(*dmg_health));
 
 				switch(rand()%3) {
 					case 0:

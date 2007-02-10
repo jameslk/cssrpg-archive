@@ -25,8 +25,8 @@ class CRPGI_Regen {
 public:
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 	static void IncreaseHealth(void *argv[], int argc);
 };
 

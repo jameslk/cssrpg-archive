@@ -73,28 +73,61 @@ private:
 
 public:
 	/* Public Functions */
-	static int maxClients(void);
-	static int currentClients(void);
+	static int maxClients(void) {
+		return s_globals->maxClients;
+	}
+
+	static int currentClients(void) {
+		return s_engine->GetEntityCount();
+	}
 
 	static unsigned int IsValidEdict(edict_t *e);
 	static unsigned int IsValidIndex(int index);
 	static int UserIDtoIndex(int userid);
 	static edict_t* UserIDtoEdict(int userid);
-	static edict_t* IndextoEdict(int index);
-	static int IndextoUserID(int index);
-	static int EdicttoIndex(edict_t *e);
-	static int EdicttoUserid(edict_t *e);
-	static IPlayerInfo* EdicttoPlayerInfo(edict_t *e);
-	static const char* EdicttoSteamID(edict_t *e);
+
+	static edict_t* IndextoEdict(int index) {
+		return s_engine->PEntityOfEntIndex(index);
+	}
+
+	static int IndextoUserID(int index) {
+		return s_engine->GetPlayerUserId(s_engine->PEntityOfEntIndex(index));
+	}
+
+	static int EdicttoIndex(edict_t *e) {
+		return s_engine->IndexOfEdict(e);
+	}
+
+	static int EdicttoUserid(edict_t *e) {
+		return s_engine->GetPlayerUserId(e);
+	}
+
+	static IPlayerInfo* EdicttoPlayerInfo(edict_t *e) {
+		return s_playerinfomanager->GetPlayerInfo(e);
+	}
+
+	static const char* EdicttoSteamID(edict_t *e) {
+		return s_playerinfomanager->GetPlayerInfo(e)->GetNetworkIDString();
+	}
+
+	static class CBaseEntity* EdicttoBaseEntity(edict_t *e) {
+		return s_gameents->EdictToBaseEntity(e);
+	}
+
+	static edict_t* BaseEntitytoEdict(class CBaseEntity *cbe) {
+		return s_gameents->BaseEntityToEdict(cbe);
+	}
+
 	static int UserMessageIndex(char *name);
 
 	static int FindPlayer(char *str); /* used to find a player by their name or part of their name or also by userid */
 	static void ChatAreaMsg(int index, char *msg, ...);
-	static void CRPG_Utils::ChatAreaMsg(int index, unsigned int key_id, ...);
+	static void ChatAreaMsg(int index, unsigned int key_id, ...);
 	static void HintTextMsg(int index, char *msgf, ...);
 	static void EmitSound(int index, char *sound_path, float vol = 0.7, CRPG_Player *follow = NULL);
 	static void ShowMOTD(int index, char *title, char *msg, motd_type type, char *cmd = NULL);
-	static void SetCheats(char enable, char temporary = 1);
+	static void SetCheats(bool enable, bool temporary = 1);
+	static void TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, const IHandleEntity *ignore, int collisionGroup, trace_t *ptr );
 
 	static void ConsoleMsg(char *msgf, char *msg_type, ...);
 	static void DebugMsg(char *msg, ...);
@@ -107,7 +140,7 @@ public:
 	static unsigned int istrcmp(char *str1, char *str2);
 	static unsigned int memrcmp(void *mem_end1, void *mem_end2, size_t len);
 	static char* istrstr(char *str, char *substr);
-	static int snprintf(char *buf, size_t length, const char *format, ...);
+	static int snprintf(char *buf, size_t buf_size, const char *format, ...);
 	static unsigned int traverse_dir(struct file_info &file, char *path, unsigned int position);
 
 	#ifdef WIN32
@@ -221,7 +254,7 @@ public:
 			return NULL;
 	}
 
-	char isfake(void) {
+	bool isfake(void) {
 		edict_t *e = s_engine->PEntityOfEntIndex(this->index);
 		IPlayerInfo *info = s_playerinfomanager->GetPlayerInfo(e);
 		if(info != NULL)

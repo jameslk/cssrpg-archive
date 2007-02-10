@@ -37,7 +37,6 @@
 #include "engine/IEngineSound.h"
 #include "dlls/iplayerinfo.h"
 #include "eiface.h"
-#include "igameevents.h"
 #include "convar.h"
 #include "Color.h"
 #include "vstdlib/random.h"
@@ -67,8 +66,8 @@ void CRPG_SigScan::parse_sig(char *sig) {
     
     len = strlen(sig);
     
-    sig_str = (unsigned char*)calloc(len, sizeof(unsigned char));
-    sig_mask = (char*)calloc(len, sizeof(char));
+    sig_str = (unsigned char*)calloc(len+1, sizeof(unsigned char));
+    sig_mask = (char*)calloc(len+1, sizeof(char));
     
     for(i = 0;i < len;i++) {
         if(isalnum(sig[i]) && isalnum(sig[i+1])) {
@@ -247,6 +246,27 @@ CRPG_FileVar CBasePlayer_GiveNamedItem_Sig("CBasePlayer_GiveNamedItem_Sig",
    "53 8B 5C 24 0C 55 56 8B 74 24 10 53 56 8B E9 E8? 6C? 89? EC? FF? 85 C0 74?"
    "08? 5E 5D 33 C0 5B C2 08 00",
    "sigscanner/windows/CBasePlayer_GiveNamedItem");
+
+/* CBaseEntity *CBaseEntity::CreateNoSpawn(const char *szName, const Vector &vecOrigin, const QAngle &vecAngles, CBaseEntity *pOwner);
+   Last Address: 220F3B60 */
+CRPG_FileVar CBaseEntity_CreateNoSpawn_Sig("CBaseEntity_CreateNoSpawn_Sig",
+	"8B 44 24 04 56 6A FF 50 E8 A3? 09? 0B? 00? 8B F0 83 C4 08 85 F6 75 02 5E"
+	"C3 8B 4C 24 0C 53 57 51 8B CE",
+	"sigscanner/windows/CBaseEntity_CreateNoSpawn_Sig");
+
+/* int DispatchSpawn(CBaseEntity *pEntity);
+   Last Address: 2229C1C0 */
+CRPG_FileVar DispatchSpawn_Sig("DispatchSpawn_Sig",
+   "53 55 56 8B 74 24 10 85 F6 57 0F? 84? 3A? 01? 00? 00? 8B 1D 0C 65 57 22 8B"
+   "03 8B CB FF 50? 60? 8B 16 8B CE",
+   "sigscanner/windows/DispatchSpawn_Sig");
+
+/* void CBaseEntity::SetParent(CBaseEntity *pParentEntity, int iAttachment);
+   Last Address: 220F1A40 */
+CRPG_FileVar CBaseEntity_SetParent_Sig("CBaseEntity_SetParent_Sig",
+   "81 EC DC 00 00 00 83 BC 24 E4 00 00 00 FF 55 56 8B F1 75? 0E? 0F B6 86 DD"
+   "00 00 00 89 84 24 EC 00 00 00",
+   "sigscanner/windows/CBaseEntity_SetParent_Sig");
 /** @} */
 
 CRPG_SigScan CBaseAnimating_Ignite_SigScan;
@@ -255,6 +275,9 @@ CRPG_SigScan CBaseCombatCharacter_Weapon_GetSlot_SigScan;
 CRPG_SigScan CBaseCombatCharacter_GiveAmmo_SigScan;
 CRPG_SigScan CBaseEntity_SetMoveType_SigScan;
 CRPG_SigScan CBasePlayer_GiveNamedItem_SigScan;
+CRPG_SigScan CBaseEntity_CreateNoSpawn_SigScan;
+CRPG_SigScan DispatchSpawn_SigScan;
+CRPG_SigScan CBaseEntity_SetParent_SigScan;
 
 void init_sigs(void) {
 	CRPG_SigScan::GetDllMemInfo();
@@ -265,6 +288,9 @@ void init_sigs(void) {
 	CBaseCombatCharacter_GiveAmmo_SigScan.Init("CBaseCombatCharacter::GiveAmmo", CBaseCombatCharacter_GiveAmmo_Sig.String());
 	CBaseEntity_SetMoveType_SigScan.Init("CBaseEntity::SetMoveType", CBaseEntity_SetMoveType_Sig.String());
 	CBasePlayer_GiveNamedItem_SigScan.Init("CBasePlayer::GiveNamedItem", CBasePlayer_GiveNamedItem_Sig.String());
+	CBaseEntity_CreateNoSpawn_SigScan.Init("CBaseEntity::CreateNoSpawn", CBaseEntity_CreateNoSpawn_Sig.String());
+	DispatchSpawn_SigScan.Init("DispatchSpawn", DispatchSpawn_Sig.String());
+	CBaseEntity_SetParent_SigScan.Init("CBaseEntity::SetParent", CBaseEntity_SetParent_Sig.String());
 
 	return ;
 }
@@ -280,6 +306,11 @@ void *CBaseCombatCharacter_Weapon_GetSlot_Addr;
 void *CBaseCombatCharacter_GiveAmmo_Addr;
 void *CBaseEntity_SetMoveType_Addr;
 void *CBasePlayer_GiveNamedItem_Addr;
+void *CBaseEntity_CreateNoSpawn_Addr;
+void *DispatchSpawn_Addr;
+void *CBaseEntity_SetParent_Addr;
+
+ITempEntsSystem **TE_Pointer_Linux;
 
 /**
  * @brief Search for a function symbol in the game dll.
@@ -292,7 +323,7 @@ void* find_sym_addr(void *dl_handle, char *name, char *symbol) {
 
 	addr = dlsym(dl_handle, symbol);
 	if(addr == NULL) {
-		CRPG::ConsoleMsg("dlsym() failed for function \"%s\" with error: \"%s\", CSS:RPG will not function properly.",
+		CRPG::ConsoleMsg("dlsym() failed for function \"%s\" with error: \"%s\", CSS:RPG may not function properly.",
 			MTYPE_ERROR, name, dlerror());
 		return NULL;
 	}
@@ -334,10 +365,51 @@ void init_lsym_funcs(void) {
 	CBasePlayer_GiveNamedItem_Addr = find_sym_addr(handle,
 		"CBasePlayer::GiveNamedItem", "_ZN11CBasePlayer13GiveNamedItemEPKci");
 
+	CBaseEntity_CreateNoSpawn_Addr = find_sym_addr(handle,
+		"CBaseEntity::CreateNoSpawn", "_ZN11CBaseEntity13CreateNoSpawnEPKcRK6VectorRK6QAnglePS_");
+
+	DispatchSpawn_Addr = find_sym_addr(handle,
+		"DispatchSpawn", "_Z13DispatchSpawnP11CBaseEntity");
+
+	CBaseEntity_SetParent_Addr = find_sym_addr(handle,
+		"CBaseEntity::SetParent", "_ZN11CBaseEntity9SetParentEPS_i");
+
+	/* Get the tempents pointer */
+	TE_Pointer_Linux = find_sym_addr(handle, "TempEnts Pointer", "te");
+
 	dlclose(handle);
 	return ;
 }
 #endif /* endif !WIN32 */
+
+/*	//////////////////////////////////////
+	Offsets and Stuff
+	////////////////////////////////////// */
+CRPG_FileVar CBE_DataDescMap_Offset("CBE_DataDescMap_Offset", "123", "offsets/CBE_DataDescMap");
+
+/**
+ * @brief ITempEntsSystem Hacked Pointer
+ *
+ * The ITempEntsSystem allows for cool effects to be used like explosions,
+ * light beams, light rings, etc.
+ * Credits go to Lance VOrgin/Mani for the code and offsets.
+ *
+ * @{
+ */
+CRPG_FileVar Offset_TE_VFunc("Offset_TE_VFunc", "12", "offsets/te_vfunc");
+CRPG_FileVar Offset_TE_Code("Offset_TE_Code", "107", "offsets/te_code");
+
+ITempEntsSystem* tempents = NULL;
+
+void Initialize_TE_Pointer(class IEffects *effects) {
+#ifdef WIN32
+	tempents = **(ITempEntsSystem***)(*(unsigned long*)((*(unsigned long*)effects) + Offset_TE_VFunc.ULong()) + (Offset_TE_Code.ULong()));
+#else
+	tempents = *TE_Pointer_Linux;
+#endif
+	return ;
+}
+/** @} */
 
 /*	//////////////////////////////////////
 	CRPG_ExternProps Class
@@ -388,20 +460,22 @@ void CRPG_ExternProps::print_sendtable(FILE *fptr, SendTable *tbl, int depth) {
 	return ;
 }
 
-#define CHECK_NETPROP(NAME) \
-	if(netp.NAME < 0) \
-		CRPG::ConsoleMsg("Unable to find %s network property", MTYPE_ERROR, #NAME);
-
 /**
  * @brief External Property Paths
  *
  * @{
  */
-CRPG_FileVar NP_m_iHealth_Path("NP_m_iHealth_Path", "CBasePlayer/m_iHealth", "extern_props/NP_m_iHealth");
+CRPG_FileVar NP_m_iHealth("NP_m_iHealth", "CBasePlayer/m_iHealth", "extern_props/NP_m_iHealth");
 CRPG_FileVar NP_m_nRenderMode("NP_m_nRenderMode", "CBaseEntity/m_nRenderMode", "extern_props/NP_m_nRenderMode");
 CRPG_FileVar NP_m_clrRender("NP_m_clrRender", "CBaseEntity/m_clrRender", "extern_props/NP_m_clrRender");
 CRPG_FileVar NP_m_nRenderFX("NP_m_nRenderFX", "CBaseEntity/m_nRenderFX", "extern_props/NP_m_nRenderFX");
+CRPG_FileVar NP_m_ArmorValue("NP_m_ArmorValue", "CCSPlayer/m_ArmorValue", "extern_props/NP_m_ArmorValue");
+CRPG_FileVar NP_m_fFlags("NP_m_fFlags", "CBasePlayer/m_fFlags", "extern_props/NP_m_fFlags");
 /** @} */
+
+#define CHECK_NETPROP(NAME) \
+	if(netp.NAME < 0) \
+		CRPG::ConsoleMsg("Unable to find %s network property", MTYPE_ERROR, #NAME);
 
 /**
  * @brief 
@@ -409,11 +483,11 @@ CRPG_FileVar NP_m_nRenderFX("NP_m_nRenderFX", "CBaseEntity/m_nRenderFX", "extern
 void CRPG_ExternProps::Init(IServerGameDLL *gamedll) {
 	ServerClass *sc;
 
-	WARN_IF(gamedll == NULL, return;);
+	WARN_IF(gamedll == NULL, return);
 
 	sc = gamedll->GetAllServerClasses();
 
-	netp.m_iHealth = FindNetProp(sc, NP_m_iHealth_Path.String());
+	netp.m_iHealth = FindNetProp(sc, NP_m_iHealth.String());
 	CHECK_NETPROP(m_iHealth);
 
 	netp.m_nRenderMode = FindNetProp(sc, NP_m_nRenderMode.String());
@@ -425,6 +499,12 @@ void CRPG_ExternProps::Init(IServerGameDLL *gamedll) {
 	netp.m_nRenderFX = FindNetProp(sc, NP_m_nRenderFX.String());
 	CHECK_NETPROP(m_nRenderFX);
 
+	netp.m_ArmorValue = FindNetProp(sc, NP_m_ArmorValue.String());
+	CHECK_NETPROP(m_ArmorValue);
+
+	netp.m_fFlags = FindNetProp(sc, NP_m_fFlags.String());
+	CHECK_NETPROP(m_fFlags);
+
 	return ;
 }
 
@@ -433,11 +513,11 @@ void CRPG_ExternProps::Init(IServerGameDLL *gamedll) {
  */
 long CRPG_ExternProps::FindNetProp(ServerClass *sc, char *path) {
 	unsigned int i, pathlen = strlen(path);
-	char *name = (char*)calloc(pathlen, sizeof(char));
+	char *name = (char*)calloc(pathlen+1, sizeof(char));
 	SendTable *tbl;
 	SendProp *prop;
 
-	WARN_IF(name == NULL, return -1;);
+	WARN_IF(name == NULL, return -1);
 
 	strcpy(name, path);
 	for(i = 0;i < pathlen;i++) {
@@ -455,9 +535,9 @@ long CRPG_ExternProps::FindNetProp(ServerClass *sc, char *path) {
 
 		for(i = 0;(name[i] != '\0') && (i < pathlen);i++);
 
-		i++; /* increment passed the '\0' character */
+		i++; //increment passed the '\0' character
 		if(i >= pathlen)
-			return -1; /* Invalid network property path */
+			return -1; //Invalid network property path
 
 		while(tbl != NULL) {
 			prop = scan_sendtable(tbl, name+i);
@@ -467,7 +547,7 @@ long CRPG_ExternProps::FindNetProp(ServerClass *sc, char *path) {
 			while((name[i] != '\0') && (i < pathlen))
 				i++;
 
-			i++; /* increment passed the '\0' character */
+			i++; //increment passed the '\0' character
 			if(i >= pathlen) {
 				CRPG::DebugMsg("Found network property: %s", path);
 				free(name);
@@ -483,8 +563,6 @@ long CRPG_ExternProps::FindNetProp(ServerClass *sc, char *path) {
 	free(name);
 	return -1;
 }
-
-CRPG_FileVar CBE_DataDescMap_Offset("CBE_DataDescMap_Offset", "123", "offsets/CBE_DataDescMap");
 
 /**
  * @brief 
@@ -517,8 +595,7 @@ void CRPG_ExternProps::DumpDataProps(FILE *fptr, CBaseEntity *cbe) {
 	////////////////////////////////////// */
 void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner) {
 	#ifdef WIN32
-	if(!CBaseAnimating_Ignite_SigScan.is_set)
-		return ;
+	WARN_IF(!CBaseAnimating_Ignite_SigScan.is_set, return);
 
 	typedef void (__fastcall *func)(CBaseAnimating*, void*, float, bool, float, bool);
 	func thisfunc = (func)CBaseAnimating_Ignite_SigScan.sig_addr;
@@ -526,7 +603,7 @@ void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPC
 
 	#else
 
-	WARN_IF(CBaseAnimating_Ignite_Addr == NULL, return)
+	WARN_IF(CBaseAnimating_Ignite_Addr == NULL, return);
 
 	typedef void (*func)(CBaseAnimating*, float, bool, float, bool);
 	func thisfunc = (func)CBaseAnimating_Ignite_Addr;
@@ -538,8 +615,7 @@ void CBaseAnimating_Ignite(CBaseAnimating *cba, float flFlameLifetime, bool bNPC
 
 void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAngle *newAngles, const Vector *newVelocity) {
 	#ifdef WIN32
-	if(!CBaseEntity_Teleport_SigScan.is_set)
-		return ;
+	WARN_IF(!CBaseEntity_Teleport_SigScan.is_set, return);
 
 	typedef void (__fastcall *func)(CBaseEntity*, void*, const Vector*, const QAngle*, const Vector*);
 	func thisfunc = (func)CBaseEntity_Teleport_SigScan.sig_addr;
@@ -547,7 +623,7 @@ void CBaseEntity_Teleport(CBaseEntity *cbe, const Vector *newPosition, const QAn
 
 	#else
 
-	WARN_IF(CBaseEntity_Teleport_Addr == NULL, return)
+	WARN_IF(CBaseEntity_Teleport_Addr == NULL, return);
 
 	typedef void (*func)(CBaseEntity*, const Vector*, const QAngle*, const Vector*);
 	func thisfunc = (func)CBaseEntity_Teleport_Addr;
@@ -561,8 +637,7 @@ CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbc
 	CBaseCombatWeapon *ret;
 
 	#ifdef WIN32
-	if(!CBaseCombatCharacter_Weapon_GetSlot_SigScan.is_set)
-		return NULL;
+	WARN_IF(!CBaseCombatCharacter_Weapon_GetSlot_SigScan.is_set, return NULL);
 
 	typedef CBaseCombatWeapon* (__fastcall *func)(CBaseCombatCharacter*, void*, int);
 	func thisfunc = (func)CBaseCombatCharacter_Weapon_GetSlot_SigScan.sig_addr;
@@ -570,7 +645,7 @@ CBaseCombatWeapon* CBaseCombatCharacter_Weapon_GetSlot(CBaseCombatCharacter *cbc
 
 	#else
 
-	WARN_IF(CBaseCombatCharacter_Weapon_GetSlot_Addr == NULL, return)
+	WARN_IF(CBaseCombatCharacter_Weapon_GetSlot_Addr == NULL, return NULL);
 
 	typedef CBaseCombatWeapon* (*func)(CBaseCombatCharacter*, int);
 	func thisfunc = (func)CBaseCombatCharacter_Weapon_GetSlot_Addr;
@@ -584,8 +659,7 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 	int ret;
 
 	#ifdef WIN32
-	if(!CBaseCombatCharacter_GiveAmmo_SigScan.is_set)
-		return 0;
+	WARN_IF(!CBaseCombatCharacter_GiveAmmo_SigScan.is_set, return 0);
 
 	typedef int (__fastcall *func)(CBaseCombatCharacter*, void*, int, int, bool);
 	func thisfunc = (func)CBaseCombatCharacter_GiveAmmo_SigScan.sig_addr;
@@ -593,7 +667,7 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 
 	#else
 
-	WARN_IF(CBaseCombatCharacter_GiveAmmo_Addr == NULL, return)
+	WARN_IF(CBaseCombatCharacter_GiveAmmo_Addr == NULL, return 0);
 
 	typedef int (*func)(CBaseCombatCharacter*, int, int, bool);
 	func thisfunc = (func)CBaseCombatCharacter_GiveAmmo_Addr;
@@ -605,8 +679,7 @@ int CBaseCombatCharacter_GiveAmmo(CBaseCombatCharacter *cbcc, int iCount, int iA
 
 void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t moveCollide) {
 	#ifdef WIN32
-	if(!CBaseEntity_SetMoveType_SigScan.is_set)
-		return ;
+	WARN_IF(!CBaseEntity_SetMoveType_SigScan.is_set, return);
 
 	typedef void (__fastcall *func)(CBaseEntity*, void*, MoveType_t val, MoveCollide_t moveCollide);
 	func thisfunc = (func)CBaseEntity_SetMoveType_SigScan.sig_addr;
@@ -614,7 +687,7 @@ void CBaseEntity_SetMoveType(CBaseEntity *cbe, MoveType_t val, MoveCollide_t mov
 
 	#else
 
-	WARN_IF(CBaseEntity_SetMoveType_Addr == NULL, return)
+	WARN_IF(CBaseEntity_SetMoveType_Addr == NULL, return);
 
 	typedef void (*func)(CBaseEntity*, MoveType_t val, MoveCollide_t moveCollide);
 	func thisfunc = (func)CBaseEntity_SetMoveType_Addr;
@@ -628,8 +701,7 @@ CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, in
 	CBaseEntity *ret;
 
 	#ifdef WIN32
-	if(!CBasePlayer_GiveNamedItem_SigScan.is_set)
-		return NULL;
+	WARN_IF(!CBasePlayer_GiveNamedItem_SigScan.is_set, return NULL);
 
 	typedef CBaseEntity* (__fastcall *func)(CBasePlayer*, void*, const char*, int);
 	func thisfunc = (func)CBasePlayer_GiveNamedItem_SigScan.sig_addr;
@@ -637,7 +709,7 @@ CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, in
 
 	#else
 
-	WARN_IF(CBasePlayer_GiveNamedItem_Addr == NULL, return)
+	WARN_IF(CBasePlayer_GiveNamedItem_Addr == NULL, return NULL);
 
 	typedef CBaseEntity* (*func)(CBasePlayer*, const char*, int);
 	func thisfunc = (func)CBasePlayer_GiveNamedItem_Addr;
@@ -645,4 +717,52 @@ CBaseEntity* CBasePlayer_GiveNamedItem(CBasePlayer *cbp, const char *pszName, in
 	#endif
 
 	return ret;
+}
+
+CBaseEntity *CBaseEntity_CreateNoSpawn(const char *szName, const Vector &vecOrigin, const QAngle &vecAngles, CBaseEntity *pOwner) {
+	typedef CBaseEntity* (*func)(const char *, const Vector&, const QAngle&, CBaseEntity*);
+
+	#ifdef WIN32
+	WARN_IF(!CBaseEntity_CreateNoSpawn_SigScan.is_set, return NULL);
+	func thisfunc = (func)CBaseEntity_CreateNoSpawn_SigScan.sig_addr;
+	#else
+	WARN_IF(CBaseEntity_CreateNoSpawn_Addr == NULL, return NULL);
+	func thisfunc = (func)CBaseEntity_CreateNoSpawn_Addr;
+	#endif
+
+	return thisfunc(szName, vecOrigin, vecAngles, pOwner);
+}
+
+int DispatchSpawn(CBaseEntity *cbe) {
+	typedef int (*func)(CBaseEntity*);
+
+	#ifdef WIN32
+	WARN_IF(!DispatchSpawn_SigScan.is_set, return -1);
+	func thisfunc = (func)DispatchSpawn_SigScan.sig_addr;
+	#else
+	WARN_IF(DispatchSpawn_Addr == NULL, return -1);
+	func thisfunc = (func)DispatchSpawn_Addr;
+	#endif
+
+	return thisfunc(cbe);
+}
+
+void CBaseEntity_SetParent(CBaseEntity *cbe, CBaseEntity *parent, int iAttachment) {
+	#ifdef WIN32
+	WARN_IF(!CBaseEntity_SetParent_SigScan.is_set, return);
+
+	typedef void (__fastcall *func)(CBaseEntity*, void*, CBaseEntity*, int);
+	func thisfunc = (func)CBaseEntity_SetParent_SigScan.sig_addr;
+	thisfunc(cbe, 0, parent, iAttachment);
+
+	#else
+
+	WARN_IF(CBaseEntity_SetParent_Addr == NULL, return);
+
+	typedef void (*func)(CBaseEntity*, CBaseEntity*, int);
+	func thisfunc = (func)CBaseEntity_SetParent_Addr;
+	thisfunc(cbe, parent, iAttachment);
+	#endif
+
+	return ;
 }

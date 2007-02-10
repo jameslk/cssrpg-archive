@@ -32,11 +32,11 @@ struct css_inventory {
 	char second_default[24];
 
 	struct {
-		char flashbang;
-		char hegrenade;
-		char smokegrenade;
-		char defuser;
-		char nvgs;
+		bool flashbang;
+		bool hegrenade;
+		bool smokegrenade;
+		bool defuser;
+		bool nvgs;
 	} equip;
 };
 
@@ -45,14 +45,17 @@ class CRPGI_Denial: public CRPG_PlayerClass<CRPGI_Denial> {
 	/* Private Variables */
 	struct css_inventory inv;
 
+	/* Private Functions */
+	static bool is_restricted(char *weapon);
+
 public:
 	/* Public Variables */
-	char was_dead;
+	bool was_dead;
 
 	static CRPGI_Denial** players;
 	static unsigned int player_count;
-	static char round_end;
-	static char players_spawned;
+	static bool round_end;
+	static bool players_spawned;
 	static int last_bomb_index;
 
 	/* Public Functions */
@@ -66,8 +69,8 @@ public:
 
 	static void Init(void);
 	static void ShutDown(void);
-	static void BuyItem(void *ptr);
-	static void SellItem(void *ptr);
+	static bool BuyItem(class CRPG_Player *player);
+	static bool SellItem(class CRPG_Player *player);
 
 	void ResetItems(void);
 

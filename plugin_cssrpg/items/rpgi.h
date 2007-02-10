@@ -27,9 +27,10 @@ public:
 	static void Init(void);
 	static void ShutDown(void);
 
-	static VAR_FUNC(CVARItemMaxLvl);
+	static void AddPlayer(CRPG_Player *player);
+	static void DelPlayer(CRPG_Player *player);
 
-	static void PlayerUpdate(CRPG_Player *player);
+	static VAR_FUNC(CVARItemMaxLvl);
 
 	static unsigned int GetItemCost(unsigned int item_index, unsigned int lvl);
 	static unsigned int GetItemSale(unsigned int item_index, unsigned int lvl);
