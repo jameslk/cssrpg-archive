@@ -49,7 +49,7 @@ template<> CRPGI_Impulse* CRPG_StaticLinkedList<CRPGI_Impulse>::ll_last;
 template<> unsigned int CRPG_StaticLinkedList<CRPGI_Impulse>::ll_count;
 int *CRPGI_Impulse::inv_entindex = NULL;
 
-extern redtrail_sprite;
+extern int redtrail_sprite;
 
 /**
  * @brief Creates a new invisible entity.
